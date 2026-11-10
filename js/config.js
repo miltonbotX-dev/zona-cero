@@ -25,6 +25,7 @@ ZC.CFG = {
     actorH: 38,
     botCount: 7,
     startDelay: 1.15,
+    dropTime: 3,        // segundos de caída con cuenta regresiva (0 = sin despliegue)
     camLerp: 6.5,
     particleMax: 280,
     bulletMax: 90

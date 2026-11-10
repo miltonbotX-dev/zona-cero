@@ -24,12 +24,59 @@ ZC.hideOverlay = function (id) {
 
   ZC.goMenu = function () {
     ZC.state = "title";
+    ZC.setInMatch(false);
     if (ZC.closeLobby) ZC.closeLobby();
     else ZC.hideOverlay("lobby-screen");
     ZC.hideOverlay("end-screen");
     const t = document.getElementById("title-screen");
     if (t) { t.hidden = false; t.classList.add("active"); }
   }
+
+  // Marca #app.in-match durante la partida: el CSS mueve el botón de silencio
+  // a la esquina izquierda para no tapar el minimapa ni el TOP 3.
+  ZC.setInMatch = function (on) {
+    var app = document.getElementById("app");
+    if (app && app.classList) app.classList.toggle("in-match", !!on);
+  };
+
+  // Pantalla completa en celular (Android/Chrome). iPhone Safari no la permite para
+  // páginas normales: ahí no hace nada y el juego sigue igual.
+  ZC.fullscreenSupported = function () {
+    var el = document.documentElement;
+    return !!(el && (el.requestFullscreen || el.webkitRequestFullscreen));
+  };
+  ZC.isFullscreen = function () {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  };
+  ZC.requestFullscreen = function () {
+    var coarse = global.matchMedia && global.matchMedia("(pointer: coarse)").matches;
+    if (!coarse || !ZC.fullscreenSupported() || ZC.isFullscreen()) return false;
+    var el = document.documentElement;
+    try {
+      var p = el.requestFullscreen ? el.requestFullscreen({ navigationUI: "hide" }) : el.webkitRequestFullscreen();
+      if (p && p.then) {
+        p.then(function () {
+          if (global.screen && screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock("landscape").catch(function () {});
+          }
+        }).catch(function () {});
+      }
+      return true;
+    } catch (e) { return false; }
+  };
+  ZC.toggleFullscreen = function () {
+    if (ZC.isFullscreen()) {
+      var exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) { try { var r = exit.call(document); if (r && r.catch) r.catch(function () {}); } catch (e) {} }
+      return;
+    }
+    var el = document.documentElement;
+    if (!el) return;
+    try {
+      var q = el.requestFullscreen ? el.requestFullscreen({ navigationUI: "hide" }) : (el.webkitRequestFullscreen && el.webkitRequestFullscreen());
+      if (q && q.catch) q.catch(function () {});
+    } catch (e) {}
+  };
 
   // Añadir una pantalla = crear el overlay HTML + registrarlo aquí + llamar ZC.UI.show("id").
   ZC.UI = {
@@ -65,6 +112,11 @@ ZC.hideOverlay = function (id) {
       if (g) g.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
     if (ZC.hudMuteBtn) ZC.hudMuteBtn.addEventListener("click", ZC.toggleMute);
+    var full = document.getElementById("btn-full");
+    if (full) {
+      if (!ZC.fullscreenSupported()) full.hidden = true;
+      full.addEventListener("click", function () { ZC.toggleFullscreen(); });
+    }
     if (ZC.bindLobby) ZC.bindLobby();
   };
 })(typeof window !== "undefined" ? window : globalThis);

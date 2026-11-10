@@ -16,7 +16,7 @@
     SCRIPT_ORDER: [
       "js/zc.js", "js/config.js", "js/weapons.js", "js/maps.js", "js/entities.js",
       "js/physics.js", "js/combat.js", "js/zone.js", "js/bots.js", "js/player.js",
-      "js/input.js", "js/audio.js", "js/appearance.js", "js/render.js", "js/ui.js", "js/lobby.js", "js/game.js"
+      "js/drop.js", "js/input.js", "js/audio.js", "js/appearance.js", "js/render.js", "js/ui.js", "js/lobby.js", "js/game.js"
     ],
     actors: [],
     bullets: [],

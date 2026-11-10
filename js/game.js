@@ -41,9 +41,10 @@ ZC.recountAlive = function () {
     ZC.match.playerPlace = 0;
     ZC.match.alive = 0;
     ZC.cam.shake = 0;
+    if (ZC.Drop) { ZC.Drop.state.on = false; ZC.Drop.state.go = 0; }
   }
 
-  ZC.startMatch = function () {
+  ZC.startMatch = function (opts) {
     ZC.unlockAudio();
     if (ZC.profile && ZC.profile.mapId && ZC.Maps && ZC.Maps.all[ZC.profile.mapId]) {
       ZC.Maps.use(ZC.profile.mapId);
@@ -74,11 +75,22 @@ ZC.recountAlive = function () {
       }));
     }
     ZC.recountAlive();
-    ZC.cam.x = ZC.util.clamp(ZC.player.x - 400, 0, ZC.CFG.worldW);
-    ZC.cam.y = ZC.util.clamp(ZC.player.y - 360, 0, ZC.CFG.worldH);
+    ZC.cam.x = ZC.util.clamp(ZC.player.x - ZC.viewW / 2, 0, Math.max(0, ZC.CFG.worldW - ZC.viewW));
+    ZC.cam.y = ZC.util.clamp(ZC.player.y - ZC.viewH * ZC.camFeetRatio(), 0, ZC.camMaxY());
     ZC.state = "playing";
     ZC.match.startedAt = ZC.util.now();
-    ZC.addFeed("La partida comenzó · " + ZC.match.alive + " en combate");
+    if (ZC.setInMatch) ZC.setInMatch(true);
+    // Despliegue: todos caen con cuenta 3-2-1 antes de poder disparar (js/drop.js)
+    var dropT = ZC.Drop ? Math.max(0, +ZC.CFG.dropTime || 0) : 0;
+    if (ZC.Drop) ZC.Drop.start(dropT);
+    if (dropT > 0) {
+      ZC.cam.x = ZC.util.clamp(ZC.player.x - ZC.viewW / 2, 0, Math.max(0, ZC.CFG.worldW - ZC.viewW));
+      ZC.cam.y = ZC.util.clamp(ZC.player.y - ZC.viewH * ZC.camFeetRatio(), 0, ZC.camMaxY());
+      ZC.addFeed("Despliegue · " + ZC.match.alive + " en el aire");
+    } else {
+      ZC.addFeed("La partida comenzó · " + ZC.match.alive + " en combate");
+    }
+    if (opts && opts.requestFullscreen && ZC.requestFullscreen) ZC.requestFullscreen();
   }
 
   ZC.endMatch = function () {
@@ -124,6 +136,18 @@ ZC.recountAlive = function () {
       return;
     }
 
+    // Despliegue: mientras dura la cuenta no corre el reloj, ni la zona, ni los bots
+    if (ZC.Drop && (ZC.Drop.active() || ZC.Drop.state.go > 0)) {
+      if (ZC.Drop.active() && ZC.state === "playing") {
+        const din = ZC.player ? ZC.readPlayerInput() : { moveX: 0 };
+        ZC.Drop.update(dt, ZC.player && !ZC.player.dead ? din.moveX : 0);
+        ZC.updateParticles(dt);
+        ZC.updateCamera(dt);
+        return;
+      }
+      ZC.Drop.update(dt, 0);
+    }
+
     ZC.match.elapsed += dt;
     ZC.updateZone(dt);
 
@@ -134,6 +158,10 @@ ZC.recountAlive = function () {
         if (a.dead) continue;
         if (a.isPlayer) {
           ZC.updatePlayer(dt, pin);
+        } else if (ZC.Drop && ZC.Drop.state.go > 0) {
+          // Respiro de "A COMBATIR": los bots se quedan quietos un instante tras aterrizar
+          ZC.controlActor(a, dt, 0, false, false, false);
+          ZC.collideWorld(a, dt);
         } else {
           ZC.thinkBot(a, dt);
         }
@@ -163,9 +191,9 @@ ZC.recountAlive = function () {
         }
         if (follow) {
           ZC.cam.x = ZC.util.lerp(ZC.cam.x, follow.x - ZC.viewW / 2, 0.08);
-          ZC.cam.y = ZC.util.lerp(ZC.cam.y, follow.y - ZC.viewH / 2, 0.08);
+          ZC.cam.y = ZC.util.lerp(ZC.cam.y, follow.y - ZC.viewH * ZC.camFeetRatio(), 0.08);
           ZC.cam.x = ZC.util.clamp(ZC.cam.x, 0, Math.max(0, ZC.CFG.worldW - ZC.viewW));
-          ZC.cam.y = ZC.util.clamp(ZC.cam.y, 0, Math.max(0, ZC.CFG.worldH - ZC.viewH));
+          ZC.cam.y = ZC.util.clamp(ZC.cam.y, 0, ZC.camMaxY());
         }
       }
     }
@@ -238,7 +266,8 @@ ZC.recountAlive = function () {
       bullets: ZC.bullets.length,
       loot: ZC.loots.length,
       zone: { r: zone.r, cx: zone.cx, cy: zone.cy, dps: zone.dps, shrinking: zone.shrinking, phase: zone.phase },
-      muted: ZC.muted
+      muted: ZC.muted,
+      drop: ZC.Drop ? { on: ZC.Drop.active(), count: ZC.Drop.count(), t: ZC.Drop.state.t, dur: ZC.Drop.state.dur } : null
     };
   };
   ZC.__test = {
@@ -259,6 +288,8 @@ ZC.recountAlive = function () {
       zone.shrinking = false; zone.hold = 9999; zone.timer = 9999;
     },
     pick: function (actor, item) { return ZC.pickLoot(actor, item); },
+    skipDrop: function () { if (ZC.Drop) ZC.Drop.skip(); },
+    hudLayout: function () { return ZC.hudLayout ? ZC.hudLayout() : null; },
     startReload: function () { return ZC.player ? ZC.startReload(ZC.player) : false; }
   };
 

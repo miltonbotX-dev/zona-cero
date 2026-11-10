@@ -14,6 +14,8 @@
       --text: #efe6d2;
       --muted: #b3a68a;
       --safe: #9bbf5e;
+      --safe-l: env(safe-area-inset-left, 0px);
+      --safe-r: env(safe-area-inset-right, 0px);
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body {
@@ -128,6 +130,33 @@
       border: 1px solid var(--line); background: var(--panel); color: var(--text);
       pointer-events: auto; cursor: pointer; font-size: 18px;
     }
+    /* Silencio y pantalla completa: en el menú y el lobby, arriba a la derecha;
+       en partida (#app.in-match) pasan arriba a la izquierda para dejar libre
+       el minimapa y el TOP 3. */
+    #btn-mute.off::after {
+      content: ""; position: absolute; left: 9px; right: 9px; top: 50%; height: 2px;
+      background: var(--rose); transform: rotate(-38deg);
+    }
+    #btn-full { display: none; right: 64px; }
+    #app.in-match #btn-mute { right: auto; left: calc(10px + var(--safe-l)); top: 8px; width: 36px; height: 36px; font-size: 16px; }
+    #app.in-match #btn-full { display: block; right: auto; left: calc(52px + var(--safe-l)); top: 8px; width: 36px; height: 36px; }
+    /* Icono de pantalla completa: cuatro esquinas dibujadas con degradados (sin emoji ni imagen) */
+    .full-ico {
+      position: absolute; inset: 10px; --c: var(--text);
+      background:
+        linear-gradient(var(--c), var(--c)) left top / 6px 2px no-repeat,
+        linear-gradient(var(--c), var(--c)) left top / 2px 6px no-repeat,
+        linear-gradient(var(--c), var(--c)) right top / 6px 2px no-repeat,
+        linear-gradient(var(--c), var(--c)) right top / 2px 6px no-repeat,
+        linear-gradient(var(--c), var(--c)) left bottom / 6px 2px no-repeat,
+        linear-gradient(var(--c), var(--c)) left bottom / 2px 6px no-repeat,
+        linear-gradient(var(--c), var(--c)) right bottom / 6px 2px no-repeat,
+        linear-gradient(var(--c), var(--c)) right bottom / 2px 6px no-repeat;
+    }
+    #safe-probe {
+      position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
+      padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+    }
     #portrait-warn {
       display: none; position: absolute; inset: 0; z-index: 20;
       background: rgba(23,19,14,0.94); align-items: center; justify-content: center;
@@ -144,6 +173,19 @@
       #btn-jump { right: 140px; bottom: 28px; width: calc(64px * var(--touch-scale, 1)); height: calc(64px * var(--touch-scale, 1)); }
       #btn-reload { right: 132px; bottom: 100px; width: calc(58px * var(--touch-scale, 1)); height: calc(58px * var(--touch-scale, 1)); }
       #btn-swap { right: 204px; bottom: 82px; width: calc(52px * var(--touch-scale, 1)); height: calc(52px * var(--touch-scale, 1)); }
+    }
+
+    /* Celular en horizontal (alto < 500 px): joysticks abajo en las esquinas, los
+       tres botones en arco junto al joystick derecho y la vida en el centro de abajo
+       (la dibuja el canvas, ver ZC.hudLayout en js/render.js). Nada se pisa en 844x390. */
+    @media (max-height: 500px) {
+      .joy { width: calc(116px * var(--touch-scale, 1)); height: calc(116px * var(--touch-scale, 1)); }
+      .knob { width: 50px; height: 50px; }
+      #joy-left { left: calc(10px + var(--safe-l)); bottom: 10px; }
+      #joy-right { right: calc(10px + var(--safe-r)); bottom: 10px; }
+      #btn-jump { right: calc(136px + var(--safe-r)); bottom: 14px; width: calc(70px * var(--touch-scale, 1)); height: calc(70px * var(--touch-scale, 1)); font-size: 12px; }
+      #btn-reload { right: calc(132px + var(--safe-r)); bottom: 98px; width: calc(58px * var(--touch-scale, 1)); height: calc(58px * var(--touch-scale, 1)); }
+      #btn-swap { right: calc(212px + var(--safe-r)); bottom: 80px; width: calc(54px * var(--touch-scale, 1)); height: calc(54px * var(--touch-scale, 1)); }
     }
 
     /* Lobby al estilo sala: personaje al centro, fichas abajo, iniciar a la derecha */

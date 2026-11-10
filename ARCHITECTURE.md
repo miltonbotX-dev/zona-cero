@@ -35,11 +35,12 @@ No reemplaces los arrays (`ZC.actors = []`): vacíalos con `.length = 0` (así l
 - **zone:** script de fases e `inZone`. El daño lo aplica `game.update` leyendo `ZC.zone.dps`.
 - **bots:** `thinkBot`; no pinta ni cambia reglas de daño.
 - **player:** `spawnPlayer`, `updatePlayer`. Aplica `ZC.applyProfile` al nacer el jugador.
+- **drop:** `ZC.Drop.start(dur)`, `update(dt, moveX)`, `active()`, `count()`, `skip()`, `surfaceBelow(x, y)`, más `ZC.drawDropWorld` (paracaídas) y `ZC.drawDropHUD` (cuenta 3-2-1 y «A COMBATIR»). No decide daño ni toca la zona.
 - **input:** `bindInput`, `readPlayerInput`, `ZC.Input.bindings`. También layout táctil (`applyControlLayout`, `beginLayoutEdit`).
 - **audio:** `sfx`, `toggleMute`, `unlockAudio`.
 - **appearance:** forma del personaje (`ZC.Appearance.draw`, `register`, `get`, `list`). No decide daño ni input.
-- **render:** cámara, escenario, proyectiles, zona y HUD. Llama a `ZC.Appearance.draw` para el cuerpo.
-- **ui:** overlays DOM (`hidden` + clase `active`). `ZC.UI.screens` incluye `title`, `lobby` y `result`.
+- **render:** cámara (`camFeetRatio`, `camMaxY`), escenario, proyectiles, zona y HUD (`hudLayout`). Llama a `ZC.Appearance.draw` para el cuerpo y a `drawDropWorld` / `drawDropHUD` durante la caída.
+- **ui:** overlays DOM (`hidden` + clase `active`). `ZC.UI.screens` incluye `title`, `lobby` y `result`. También `setInMatch` (clase `#app.in-match`) y la pantalla completa (`requestFullscreen`, `toggleFullscreen`).
 - **lobby:** perfil, sala, paneles (mochila, aspecto, mapa, ajustes) y `startFromLobby`.
 - **game:** `startMatch`, `endMatch`, `update`, `loop`, `mount`, API pública y `ZC.__test`.
 
@@ -61,9 +62,24 @@ No reemplaces los arrays (`ZC.actors = []`): vacíalos con `.length = 0` (así l
 - Para un mapa nuevo: genera o dibuja una imagen 16:9 en vista lateral, sin texto, con el suelo en la franja de abajo, expórtala a WebP y ponla en `backgroundImage`.
 - Los colores del escenario (suelo, acero, franjas) están juntos en `ZC.PALETTE`, al principio de `render.js`.
 
+## HUD y cámara en celular horizontal (v1.4)
+
+- `ZC.hudLayout()` (en `js/render.js`) devuelve el rectángulo de cada panel en px CSS: `timer`, `minimap`, `top3`, `vitals`, `feed` y `warnY`. `drawHUD` dibuja solo con esos números y las pruebas los comparan con los botones táctiles. Si mueves un panel, cámbialo ahí.
+- Modo compacto cuando el alto es menor de 500 px (celular en horizontal). Los botones DOM tienen su propio bloque `@media (max-height: 500px)` en `css/style.css`. Si cambias el tamaño de los botones de la derecha, ajusta también el hueco reservado en `hudLayout` (266 px desde el borde derecho en compacto).
+- Márgenes de la muesca: el div `#safe-probe` lleva `padding: env(safe-area-inset-*)`; `ZC.readSafeArea()` lo lee en cada `resize` y guarda `ZC.safe`.
+- `#app.in-match` (lo pone `ZC.setInMatch`) mueve silencio y pantalla completa arriba a la izquierda durante la partida; en el menú y el lobby el silencio sigue arriba a la derecha.
+- Cámara: `ZC.camFeetRatio()` dice a qué altura de pantalla van los pies del jugador (0.58 en compacto, 0.64 en PC, 0.8 durante la caída). `ZC.camMaxY()` deja que la cámara baje más que el mundo para lograrlo; `drawWorld` pinta la tierra hasta el borde de la vista.
+
+## Caída con cuenta regresiva (v1.4)
+
+- `startMatch` crea a todos como antes y llama `ZC.Drop.start(ZC.CFG.dropTime)`. Cada actor sube a lo alto (`TOP_Y` en `js/drop.js`) sobre su punto de aparición y cae a velocidad fija calculada con `surfaceBelow`, para tocar tierra justo en el 0.
+- Mientras `ZC.Drop.active()`, `game.update` solo mueve la caída, las partículas y la cámara: no corre el reloj, ni la zona, ni piensan los bots, y nadie dispara. El jugador puede guiarse en horizontal.
+- Al terminar, `ZC.Drop.state.go` (0.9 s) muestra «A COMBATIR». En ese rato el jugador ya juega y los bots esperan quietos.
+- `ZC.state` sigue siendo `"playing"` durante la caída (las pruebas y el resto del código no cambian). `getState().drop` informa `on`, `count`, `t` y `dur`. `ZC.__test.skipDrop()` la salta. Con `ZC.CFG.dropTime = 0` no hay caída.
+
 ## Dependencias de carga
 
-`zc` → `config` → `weapons` / `maps` → `entities` → `physics` / `combat` / `zone` → `bots` / `player` → `input` / `audio` → `appearance` → `render` / `ui` → `lobby` → `game`.
+`zc` → `config` → `weapons` / `maps` → `entities` → `physics` / `combat` / `zone` → `bots` / `player` → `drop` → `input` / `audio` → `appearance` → `render` / `ui` → `lobby` → `game`.
 
 Las llamadas entre módulos (por ejemplo physics → `ZC.fireWeapon`) ocurren en runtime, cuando todos los scripts ya cargaron. Por eso `game.js` va al final.
 

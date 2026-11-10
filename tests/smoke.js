@@ -51,7 +51,8 @@ ok(!/WebSocket|firebase|socket\.io/i.test(html), "sin red / multijugador");
 ok(!/adsbygoogle|doubleclick|adsense/i.test(html), "sin anuncios reales");
 ok(/id="end-screen"[^>]*\bhidden\b/.test(html), "end-screen nace con atributo hidden");
 ok(!/<div id="title-screen"[^>]*\bhidden\b/.test(html), "title-screen no nace con hidden");
-ok(/href="css\/style\.css"/.test(html), "enlaza css/style.css");
+ok(/href="css\/style\.css(\?v=[\w.]+)?"/.test(html), "enlaza css/style.css");
+ok(/\?v=1\.4\.0/.test(html), "index.html marca los archivos con la versión 1.4.0 (sin caché viejo)");
 
 const cssPath = path.join(root, "css", "style.css");
 ok(fs.existsSync(cssPath), "existe css/style.css");
@@ -62,11 +63,12 @@ ok(/\.overlay\s*\{[^}]*display\s*:\s*flex/i.test(css),
   ".overlay declara display:flex (conflicto que [hidden] debe ganar)");
 
 const scriptSrcs = [];
-html.replace(/<script\s+src="([^"]+)"><\/script>/g, function (_, src) { scriptSrcs.push(src); return ""; });
+// El ?v=... solo evita que el celular use una copia vieja en caché
+html.replace(/<script\s+src="([^"?]+)(?:\?v=[\w.]+)?"><\/script>/g, function (_, src) { scriptSrcs.push(src); return ""; });
 const expected = [
   "js/zc.js", "js/config.js", "js/weapons.js", "js/maps.js", "js/entities.js",
   "js/physics.js", "js/combat.js", "js/zone.js", "js/bots.js", "js/player.js",
-  "js/input.js", "js/audio.js", "js/appearance.js", "js/render.js", "js/ui.js", "js/lobby.js", "js/game.js"
+  "js/drop.js", "js/input.js", "js/audio.js", "js/appearance.js", "js/render.js", "js/ui.js", "js/lobby.js", "js/game.js"
 ];
 ok(scriptSrcs.length === expected.length, "carga " + expected.length + " scripts locales", String(scriptSrcs.length));
 ok(scriptSrcs.every(function (s, i) { return s === expected[i]; }),
@@ -234,6 +236,10 @@ try {
   finish();
 }
 ok(rafCalls.length === 0, "no arranca requestAnimationFrame en modo test");
+// Las pruebas de lógica de la v1-v1.3 corren sin la caída inicial; la sección
+// «Despliegue» de más abajo la prueba con su duración real.
+const DROP_DEFAULT = ZC.cfg.dropTime;
+ZC.cfg.dropTime = 0;
 
 // ---------------------------------------------------------------------------
 // 3) Utilidades puras
@@ -582,6 +588,156 @@ ZC.profile = { name: "Tú", look: "operativo", mapId: "arena-industrial", primar
 ZC.saveProfile();
 ZC.Maps.use("arena-industrial");
 ZC.startMatch();
+
+// ---------------------------------------------------------------------------
+// v1.4) HUD de celular horizontal y cámara
+// ---------------------------------------------------------------------------
+console.log("v1.4 HUD en horizontal y cámara");
+function rectsOverlap(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+const savedView = { w: ZC.viewW, h: ZC.viewH };
+[[844, 390], [740, 360], [667, 375], [915, 412], [1280, 720]].forEach(function (vp) {
+  ZC.viewW = vp[0]; ZC.viewH = vp[1];
+  const L = ZC.hudLayout();
+  const tag = vp[0] + "x" + vp[1];
+  ok(L.compact === (vp[1] < 500), "modo compacto correcto en " + tag);
+  const panels = { timer: L.timer, minimap: L.minimap, top3: L.top3, vitals: L.vitals,
+    feed: { x: L.feed.x, y: L.feed.y, w: L.feed.w, h: L.feed.row * L.feed.rows } };
+  const names = Object.keys(panels);
+  let clash = [];
+  for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) {
+    if (rectsOverlap(panels[names[i]], panels[names[j]])) clash.push(names[i] + "/" + names[j]);
+  }
+  ok(clash.length === 0, "paneles del HUD sin solaparse en " + tag, clash.join(", "));
+  ok(names.every(function (n) { const r = panels[n]; return r.x >= 0 && r.y >= 0 && r.x + r.w <= vp[0] && r.y + r.h <= vp[1]; }),
+    "todos los paneles caben en " + tag);
+  ok(L.top3.y >= L.minimap.y + L.minimap.h, "TOP 3 va debajo del minimapa en " + tag);
+  ok(L.vitals.y + L.vitals.h > vp[1] * 0.8, "vida y munición abajo en " + tag);
+  // Hueco libre para los joysticks: la vida no entra en la franja del joystick izquierdo
+  const joyW = L.compact ? 116 : 132;
+  ok(L.vitals.x >= L.feed.x + joyW, "la vida no cae encima del joystick izquierdo en " + tag, L.vitals.x + "");
+  ok(L.vitals.x + L.vitals.w <= vp[0] - 10 - (L.compact ? 266 : 310), "la vida no cae sobre los botones de la derecha en " + tag,
+    (L.vitals.x + L.vitals.w) + "");
+  ok(L.warnY < L.vitals.y && L.warnY > L.timer.y + L.timer.h, "aviso de zona entre el cronómetro y la vida en " + tag);
+});
+// Cámara: en 844x390 los pies del jugador quedan por encima de los joysticks
+ZC.viewW = 844; ZC.viewH = 390;
+ZC.Maps.use("arena-industrial");
+ZC.cfg.dropTime = 0;
+ZC.startMatch();
+ZC.__test.player.x = 1300; ZC.__test.player.y = ZC.cfg.groundY;
+ZC.__test.player.aimX = 1; ZC.__test.player.aimY = 0;
+for (let i = 0; i < 240; i++) ZC.updateCamera(1 / 60);
+const feetScreen = ZC.cfg.groundY - ZC.cam.y;
+ok(feetScreen < 390 - 116 - 10, "en 844x390 los pies en el suelo quedan sobre los joysticks", feetScreen.toFixed(1));
+ok(feetScreen > 390 * 0.45, "y no tan arriba que se pierda el suelo", feetScreen.toFixed(1));
+ok(ZC.camMaxY() > ZC.cfg.worldH - 390, "la cámara puede bajar más allá del borde del mundo en pantallas bajas");
+ZC.viewW = 1280; ZC.viewH = 720;
+for (let i = 0; i < 240; i++) ZC.updateCamera(1 / 60);
+const feetDesk = ZC.cfg.groundY - ZC.cam.y;
+ok(feetDesk < 720 * 0.7, "en 1280x720 el suelo tampoco queda pegado abajo", feetDesk.toFixed(1));
+(function () {
+  const spy = Object.assign({}, makeCtx());
+  let groundH = 0;
+  spy.fillRect = function (x, y, w, h) { if (y === ZC.cfg.groundY && h > groundH) groundH = h; };
+  const real = ZC.ctx; ZC.ctx = spy;
+  ZC.viewW = 844; ZC.viewH = 390; ZC.cam.y = ZC.camMaxY();
+  ZC.drawWorld();
+  ZC.ctx = real;
+  ok(ZC.cfg.groundY + groundH >= ZC.cam.y + 390, "la tierra se pinta hasta el borde inferior de la vista", String(groundH));
+})();
+ZC.viewW = savedView.w; ZC.viewH = savedView.h;
+
+// ---------------------------------------------------------------------------
+// v1.4) Despliegue: caída con cuenta regresiva
+// ---------------------------------------------------------------------------
+console.log("v1.4 Despliegue");
+ok(DROP_DEFAULT === 3, "la caída dura 3 s por defecto (3-2-1)", String(DROP_DEFAULT));
+ok(!!ZC.Drop && typeof ZC.Drop.start === "function" && typeof ZC.__test.skipDrop === "function", "API ZC.Drop y __test.skipDrop");
+ZC.cfg.dropTime = DROP_DEFAULT;
+ZC.Maps.use("arena-industrial");
+ZC.startMatch();
+let ds = ZC.getState();
+ok(ds.mode === "playing" && ds.drop && ds.drop.on, "al iniciar empieza la caída", JSON.stringify(ds.drop));
+ok(ds.drop.count === 3, "la cuenta arranca en 3", String(ds.drop.count));
+ok(ZC.killfeed[0] && /Despliegue/.test(ZC.killfeed[0].text), "el registro dice Despliegue");
+const dp = ZC.__test.player;
+ok(dp.y < ZC.cfg.groundY - 150, "el jugador empieza en el aire", String(dp.y));
+ok(ZC.__test.actors.every(function (a) { return !a.grounded && a.dropVy > 0; }), "todos caen en paracaídas");
+ok(ZC.__test.actors.every(function (a) { return a.chute === 1; }), "todos con el paracaídas abierto");
+const zoneTimer0 = ZC.__test.zone.timer, zoneR0 = ZC.__test.zone.r;
+ZC.input.fire = true;
+ZC.input.analog = true; ZC.input.moveX = 0;
+const bx0 = ZC.__test.actors.filter(function (a) { return !a.isPlayer; }).map(function (a) { return a.x; });
+const counts = [];
+for (let i = 0; i < 60; i++) { ZC.update(1 / 60); if (counts[counts.length - 1] !== ZC.Drop.count()) counts.push(ZC.Drop.count()); }
+ok(ZC.bullets.length === 0, "durante la caída no se dispara", String(ZC.bullets.length));
+ok(ZC.match.elapsed === 0, "el reloj de partida no corre durante la caída", String(ZC.match.elapsed));
+ok(ZC.__test.zone.r === zoneR0 && ZC.__test.zone.timer === zoneTimer0, "la zona espera a que aterricen");
+ok(ZC.__test.actors.filter(function (a) { return !a.isPlayer; }).every(function (a, i) { return a.x === bx0[i]; }), "los bots no se mueven en el aire");
+ok(dp.y > dp.dropFromY + 10 && (dp.landed || !dp.grounded), "tras 1 s va bajando (o ya pisó una pasarela)", dp.dropFromY.toFixed(1) + " -> " + dp.y.toFixed(1));
+// Guiar la caída
+const sx0 = dp.x;
+ZC.input.moveX = 1;
+for (let i = 0; i < 20; i++) ZC.update(1 / 60);
+ok(dp.x > sx0 + 20, "el joystick guía la caída hacia los lados", sx0 + " -> " + dp.x);
+ZC.input.moveX = 0;
+dp.x = sx0; // vuelve a su vertical para que el aterrizaje sea predecible
+ok(ZC.getState().drop.count === 2 || ZC.getState().drop.count === 1, "la cuenta baja", String(ZC.getState().drop.count));
+for (let i = 0; i < 120 && ZC.Drop.active(); i++) { ZC.update(1 / 60); const c = ZC.Drop.count(); if (counts[counts.length - 1] !== c) counts.push(c); }
+// Justo al terminar la cuenta (antes de que los bots empiecen a saltar)
+ok(ZC.__test.actors.every(function (a) { return a.dead || a.grounded; }), "todos tocan tierra justo en el 0",
+  JSON.stringify(ZC.__test.actors.filter(function (a) { return !a.dead && !a.grounded; }).map(function (a) { return [a.name, Math.round(a.x), Math.round(a.y)]; })));
+ok(Math.abs(ZC.Drop.state.t - DROP_DEFAULT) < 0.05, "la cuenta dura lo previsto", ZC.Drop.state.t.toFixed(3));
+ok(counts.join(",") === "3,2,1,0", "secuencia 3-2-1 y fin", counts.join(","));
+ds = ZC.getState();
+ok(!ds.drop.on, "la caída termina a los 3 s");
+ok(ZC.Drop.state.go > 0 || ZC.match.elapsed > 0, "aparece A COMBATIR o ya corre el reloj");
+for (let i = 0; i < 30; i++) ZC.update(1 / 60);
+ok(ZC.__test.actors.every(function (a) { return a.dead || a.chute === 0; }), "los paracaídas se pliegan al aterrizar");
+ok(ZC.match.elapsed > 0.2, "después de aterrizar corre el reloj", String(ZC.match.elapsed));
+ok(ZC.killfeed.some(function (k) { return /Aterrizaje/.test(k.text); }), "el registro avisa el aterrizaje");
+ZC.input.fire = false; ZC.input.analog = false;
+dp.gun.cooldown = 0; dp.gun.reloading = 0;
+const shotOk = ZC.__test.fire();
+ok(shotOk && ZC.bullets.length > 0, "tras aterrizar ya se puede disparar");
+// Dibujo del despliegue
+ZC.startMatch();
+(function () {
+  const texts = [];
+  const spy = Object.assign({}, makeCtx());
+  spy.fillText = function (t) { texts.push(String(t)); };
+  let curves = 0;
+  spy.quadraticCurveTo = function () { curves++; };
+  const real = ZC.ctx; ZC.ctx = spy;
+  ZC.viewW = 844; ZC.viewH = 390;
+  try {
+    ZC.draw();
+    ok(true, "draw() durante la caída no lanza");
+  } catch (e) { ok(false, "draw() durante la caída no lanza", e && e.stack); }
+  ok(texts.indexOf("3") >= 0, "se dibuja el número grande de la cuenta", texts.slice(0, 12).join("|"));
+  ok(texts.some(function (t) { return /SALTANDO SOBRE/.test(t); }), "se nombra el mapa de la caída");
+  ok(texts.some(function (t) { return /Guía la caída/.test(t); }), "pista para guiar la caída");
+  ok(texts.some(function (t) { return / m$/.test(t); }), "altímetro en metros");
+  ok(curves >= 8, "se dibujan los paracaídas", String(curves));
+  ZC.__test.skipDrop();
+  texts.length = 0;
+  ZC.draw();
+  ok(texts.indexOf("A COMBATIR") >= 0, "al aterrizar se ve A COMBATIR");
+  ZC.ctx = real;
+  ZC.viewW = savedView.w; ZC.viewH = savedView.h;
+})();
+ok(!ZC.Drop.active(), "skipDrop termina la caída");
+ZC.cfg.dropTime = 0;
+ZC.startMatch();
+ok(!ZC.Drop.active() && ZC.map.spawns.some(function (sp) { return sp.x === ZC.__test.player.x && sp.y === ZC.__test.player.y; }),
+  "con dropTime 0 se aparece en su punto como antes");
+// Sin emojis en la interfaz
+const emojiRe = /[\u{1F000}-\u{1FAFF}\u{FE0F}\u{2705}\u{274C}\u{2728}]/u;
+const uiFiles = ["index.html", "css/style.css"].concat(expected);
+const withEmoji = uiFiles.filter(function (f) { return emojiRe.test(fs.readFileSync(path.join(root, f), "utf8")); });
+ok(withEmoji.length === 0, "sin emojis en HTML, CSS ni JS", withEmoji.join(", "));
+ok(/id="btn-full"/.test(html) && /id="safe-probe"/.test(html), "botón de pantalla completa y sonda de márgenes seguros");
+ok(/@media \(max-height: 500px\)/.test(css) && /#app\.in-match #btn-mute/.test(css), "CSS de celular horizontal y silencio movido en partida");
 
 function finish() {
   console.log("");

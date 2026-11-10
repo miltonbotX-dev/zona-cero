@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.4.0 — pantalla de celular ordenada y caída con cuenta regresiva (10 nov 2026, America/Lima)
+
+Primer paso hacia un PUBG Mobile en 2D. Lobby, aspectos, mapas con imagen, ajustes y controles arrastrables de la 1.2 y la 1.3 quedan igual.
+
+- HUD reordenado para celular horizontal (`ZC.hudLayout` en `js/render.js`): minimapa arriba a la derecha con el TOP 3 debajo (ya no se pisan), tiempo y vivos arriba al centro, registro de bajas arriba a la izquierda y vida, arma y munición abajo al centro, entre los joysticks. Antes el joystick izquierdo tapaba la caja de vida.
+- La vida muestra el número y la munición se lee más grande (cargador en grande, reserva al lado). El aviso de zona pasa bajo el cronómetro.
+- En partida, el botón de silencio pasa arriba a la izquierda (antes tapaba la esquina del TOP 3). Ya no usa emoji: el mismo ♪ se tacha cuando está en silencio.
+- Nuevo botón de pantalla completa junto al silencio, y el juego la pide solo al tocar Iniciar en el celular (Android/Chrome; iPhone Safari no la permite).
+- Controles táctiles en pantallas bajas (`@media (max-height: 500px)`): joysticks en las esquinas y Salto (más grande), Rec y Arma en arco junto al joystick derecho, respetando los bordes de la muesca (`env(safe-area-inset-*)`).
+- Cámara: en celular horizontal los pies del jugador quedan al 58 % de la altura (antes casi abajo del todo), así el que está en el suelo ya no queda bajo los joysticks. La cámara puede bajar un poco más allá del mundo y esa franja se pinta como tierra.
+- Nueva caída al empezar (`js/drop.js`): todos bajan en paracaídas sobre el mapa con una cuenta 3-2-1 grande, anillo de progreso, altímetro y franjas de cine. Con el joystick izquierdo (o A / D) guías la caída. Durante la caída no hay disparos, ni zona, ni reloj. Cada uno toca tierra justo en el 0, aparece «A COMBATIR» y los bots esperan ese instante antes de disparar.
+- Sonidos nuevos: tic de la cuenta y golpe de aterrizaje.
+- `ZC.CFG.dropTime` (3 s) controla la caída; con 0 se vuelve al arranque de antes.
+- `index.html` pide CSS y JS con `?v=1.4.0` para que el celular no se quede con la versión anterior en caché.
+- Pruebas: 276 de humo (`node tests/smoke.js`, 85 nuevas sobre HUD, cámara y caída) y 44 en navegador (`tests/browser.py`, 14 nuevas: HUD sin solaparse en 844x390, caída, aterrizaje y los 3 mapas).
+
 ## 1.3.0 — estilo tierra/militar y mapas con imagen (10 nov 2026, America/Lima)
 
 Cambio solo visual: la jugabilidad, el lobby y los ajustes de la 1.2 quedan igual.

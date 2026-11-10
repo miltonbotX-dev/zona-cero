@@ -20,11 +20,12 @@ Prototipo jugable de shooter táctico en vista lateral, estilo battle royale loc
 | `js/zone.js` | Fases y radio de la zona | Ritmo del cierre |
 | `js/bots.js` | Inteligencia local (pelean entre sí y huyen de la zona) | Dificultad de los bots |
 | `js/player.js` | Crear al jugador y aplicar su perfil | Spawn del jugador |
+| `js/drop.js` | Caída en paracaídas con cuenta 3-2-1 al empezar | Duración, altura y aspecto de la caída |
 | `js/input.js` | Teclado, ratón, joysticks y layout táctil | Cambiar teclas o arrastre de botones |
 | `js/audio.js` | Sonidos sintéticos y silencio | Tonos |
 | `js/appearance.js` | Forma y aspectos del personaje | Casco, torso, un aspecto nuevo |
-| `js/render.js` | Dibujo del fondo con imagen, del mundo y del HUD (`ZC.PALETTE`) | Estética del escenario |
-| `js/ui.js` | Mostrar/ocultar menú, lobby y resultado | Registrar pantallas |
+| `js/render.js` | Cámara, fondo con imagen, mundo y HUD (`ZC.PALETTE`, `ZC.hudLayout`) | Estética del escenario y dónde va cada panel |
+| `js/ui.js` | Mostrar/ocultar menú, lobby y resultado; pantalla completa | Registrar pantallas |
 | `js/lobby.js` | Sala, perfil, mochila, mapa y ajustes | Flujo del lobby |
 | `js/game.js` | Partida: inicio, victoria/derrota, bucle | Flujo general |
 | `assets/maps/` | Imágenes de fondo de cada mapa (WebP) | Cambiar el paisaje de un mapa |
@@ -37,7 +38,11 @@ Más detalle técnico en `ARCHITECTURE.md`.
 Doble clic en `index.html`, o visita la página publicada. Jugar abre el lobby. Controles: WASD o flechas, espacio/W/↑ para saltar (doble salto), ratón para apuntar y disparar, R recarga, 1/2 (o Q) cambia el arma, M silencio.
 
 ### Celular
-Horizontal. Joystick izquierdo: mover. Derecho: apuntar y disparar. Botones Salto, Rec y Arma. En el lobby, Ajustes permite mover y cambiar el tamaño de esos controles.
+Horizontal. Joystick izquierdo: mover. Derecho: apuntar y disparar. Botones Salto, Rec y Arma junto al joystick derecho. En el lobby, Ajustes permite mover y cambiar el tamaño de esos controles.
+
+Al tocar Iniciar el juego pide pantalla completa (Android/Chrome; en iPhone Safari no existe para páginas web) y empieza la caída: todos bajan en paracaídas con una cuenta 3-2-1. Con el joystick izquierdo guías la caída hacia los lados. Al llegar a 0 aterrizas, aparece «A COMBATIR» y ya puedes disparar.
+
+HUD en horizontal, como PUBG Mobile: arriba a la izquierda silencio, pantalla completa y el registro de bajas; arriba al centro tiempo y vivos; arriba a la derecha minimapa y TOP 3; abajo al centro vida, arma y munición, entre los dos joysticks.
 
 Los scripts son clásicos (`<script src="js/...">`), no módulos ES, precisamente para que `file://` funcione sin CORS y sin empaquetar.
 
@@ -45,7 +50,7 @@ Los scripts son clásicos (`<script src="js/...">`), no módulos ES, precisament
 
 El orden está en `index.html` y también en `ZC.SCRIPT_ORDER` (`js/zc.js`):
 
-`zc` → `config` → `weapons` → `maps` → `entities` → `physics` → `combat` → `zone` → `bots` → `player` → `input` → `audio` → `appearance` → `render` → `ui` → `lobby` → `game`
+`zc` → `config` → `weapons` → `maps` → `entities` → `physics` → `combat` → `zone` → `bots` → `player` → `drop` → `input` → `audio` → `appearance` → `render` → `ui` → `lobby` → `game`
 
 `zc.js` tiene que ir primero. `game.js` el último (monta el juego y publica la API).
 
@@ -68,7 +73,9 @@ Regla práctica: **cada persona un módulo**. Ejemplo: uno en `weapons.js`, otro
 node tests/smoke.js
 ```
 
-Comprueban el orden de los archivos, que cada JS parsea, que no hay CDN, el arreglo de overlays `[hidden]`, la lógica de salto, disparo, cobertura, zona, victoria/derrota y reinicio, el lobby (aspectos y mapas), que cada mapa tiene su imagen de fondo y que ya no queda el cian neón.
+Comprueban el orden de los archivos, que cada JS parsea, que no hay CDN, el arreglo de overlays `[hidden]`, la lógica de salto, disparo, cobertura, zona, victoria/derrota y reinicio, el lobby (aspectos y mapas), que cada mapa tiene su imagen de fondo, que ya no queda el cian neón, que los paneles del HUD no se pisan en pantallas de celular horizontal (844x390 y otras) y la caída con cuenta 3-2-1.
+
+La prueba de navegador también abre el juego como un celular horizontal de 844x390 y comprueba que joysticks, botones y paneles no se solapan, que en la caída no se dispara y que se aterriza al llegar a 0.
 
 En navegador real (opcional, necesita `uv` y Chrome):
 

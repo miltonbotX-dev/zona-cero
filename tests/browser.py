@@ -123,6 +123,12 @@ with sync_playwright() as p:
     st = js_state(page)
     ok(st.get("state") == "playing" and st.get("hasPlayer"), "la partida arranca", json.dumps(st))
     ok(st.get("lobbyHidden") and st.get("titleHidden"), "lobby y menú quedan ocultos")
+    drop = page.evaluate("() => ZC.getState().drop")
+    ok(drop and drop.get("on") and drop.get("count") in (2, 3), "tras Iniciar empieza la caída con cuenta", json.dumps(drop))
+    page.screenshot(path=str(SHOTS / "desktop-drop.png"))
+    page.wait_for_function("() => !ZC.getState().drop.on", timeout=8000)
+    page.wait_for_timeout(500)
+    st = js_state(page)
     x0, y0 = st["x"], st["y"]
     # move right and jump
     page.keyboard.down("KeyD")
@@ -209,6 +215,66 @@ with sync_playwright() as p:
     page.wait_for_timeout(400)
     st = js_state(page)
     ok(st.get("state") == "playing", "la partida arranca en el celular", json.dumps(st))
+    # --- Caída con cuenta regresiva ---
+    page.evaluate("() => { if (window.ZC && ZC.enableTouch) ZC.enableTouch(); }")
+    page.wait_for_timeout(500)
+    d1 = page.evaluate("() => Object.assign({}, ZC.getState().drop, { y: ZC.player.y, landed: !!ZC.player.landed, bullets: ZC.bullets.length })")
+    ok(d1.get("on") and d1.get("count") in (2, 3), "cuenta regresiva visible en el celular", json.dumps(d1))
+    page.screenshot(path=str(SHOTS / "phone-844x390-drop.png"))
+    # el joystick derecho no dispara en el aire
+    box = page.locator("#joy-right").bounding_box()
+    cdp0 = ctx.new_cdp_session(page)
+    cx, cy = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    cdp0.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": cx, "y": cy, "id": 7}]})
+    for i in range(1, 5):
+        cdp0.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": [{"x": cx + 9 * i, "y": cy, "id": 7}]})
+        page.wait_for_timeout(30)
+    page.wait_for_timeout(200)
+    nb = page.evaluate("() => ({ b: ZC.bullets.length, on: ZC.getState().drop.on })")
+    cdp0.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+    ok((not nb["on"]) or nb["b"] == 0, "en la caída no se dispara", json.dumps(nb))
+    page.wait_for_function("() => !ZC.getState().drop.on", timeout=8000)
+    page.wait_for_timeout(150)
+    page.screenshot(path=str(SHOTS / "phone-844x390-landing.png"))
+    landed = page.evaluate("() => ({ grounded: !!ZC.player.grounded, landed: !!ZC.player.landed, go: ZC.Drop.state.go, elapsed: ZC.match.elapsed })")
+    ok(landed["landed"] and landed["go"] > 0, "al llegar a 0 aterriza y sale A COMBATIR", json.dumps(landed))
+    bots_still = page.evaluate("() => ZC.bullets.filter(b => b.owner && !b.owner.isPlayer).length")
+    ok(bots_still == 0, "los bots esperan el A COMBATIR antes de disparar", str(bots_still))
+    page.wait_for_timeout(900)
+    # Para las pruebas de controles: que el jugador no muera por un bot cercano
+    page.evaluate("() => { ZC.player.maxHp = 1e6; ZC.player.hp = 1e6; }")
+    # --- HUD sin solaparse en 844x390 ---
+    hud = page.evaluate("""() => {
+      const L = ZC.__test.hudLayout();
+      const rects = {};
+      ['timer', 'minimap', 'top3', 'vitals'].forEach(k => rects['hud:' + k] = L[k]);
+      rects['hud:feed'] = { x: L.feed.x, y: L.feed.y, w: L.feed.w, h: L.feed.row * Math.max(1, Math.min(L.feed.rows, ZC.killfeed.length)) };
+      ['joy-left', 'joy-right', 'btn-jump', 'btn-reload', 'btn-swap', 'btn-mute', 'btn-full'].forEach(id => {
+        const el = document.getElementById(id);
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0 && getComputedStyle(el).display !== 'none') rects[id] = { x: r.x, y: r.y, w: r.width, h: r.height };
+      });
+      const feetY = ZC.player.y - ZC.cam.y;
+      const headY = feetY - 76;
+      return { rects, feetY, headY, viewW: ZC.viewW, viewH: ZC.viewH, inMatch: document.getElementById('app').classList.contains('in-match') };
+    }""")
+    rects = hud["rects"]
+    names = list(rects.keys())
+    clashes = []
+    for i in range(len(names)):
+        for j in range(i + 1, len(names)):
+            a, b = rects[names[i]], rects[names[j]]
+            if a["x"] < b["x"] + b["w"] and a["x"] + a["w"] > b["x"] and a["y"] < b["y"] + b["h"] and a["y"] + a["h"] > b["y"]:
+                clashes.append(names[i] + "/" + names[j])
+    ok(not clashes, "HUD y controles sin solaparse en 844x390", ", ".join(clashes) + " " + json.dumps(rects))
+    ok(all(r["x"] >= 0 and r["y"] >= 0 and r["x"] + r["w"] <= 844.5 and r["y"] + r["h"] <= 390.5 for r in rects.values()),
+       "todo el HUD dentro de la pantalla", json.dumps(rects))
+    ok(hud["inMatch"] and "btn-mute" in rects and rects["btn-mute"]["x"] < 100, "el botón de silencio pasa a la izquierda en partida", json.dumps(rects.get("btn-mute")))
+    ok(rects.get("joy-left") and hud["feetY"] < rects["joy-left"]["y"], "el jugador queda por encima de los joysticks",
+       f"pies {hud['feetY']:.0f} vs joystick {rects.get('joy-left', {}).get('y')}")
+    ok(hud["headY"] > rects["hud:timer"]["y"] + rects["hud:timer"]["h"] - 20, "y por debajo del cronómetro", f"cabeza {hud['headY']:.0f}")
+    small = [k for k in ("btn-jump", "btn-reload", "btn-swap") if k in rects and rects[k]["w"] < 52]
+    ok(not small, "botones de salto, recarga y arma de 52 px o más", ", ".join(small))
     # enable and inspect touch controls
     page.evaluate("() => { if (window.ZC && ZC.enableTouch) ZC.enableTouch(); }")
     page.wait_for_timeout(100)
@@ -246,7 +312,20 @@ with sync_playwright() as p:
     st3 = js_state(page)
     ok(st3["bullets"] >= 1 or (mag0 is not None and st3["mag"] is not None and st3["mag"] < mag0),
        "el joystick derecho dispara", f"bullets={st3['bullets']} mag {mag0}->{st3['mag']}")
+    page.evaluate("() => { ZC.player.maxHp = 100; ZC.player.hp = Math.min(100, ZC.player.hp); }")
+    page.wait_for_timeout(100)
     page.screenshot(path=str(SHOTS / "phone-844x390-gameplay.png"))
+    # --- Los 3 mapas en horizontal ---
+    for map_id in page.evaluate("() => ZC.Maps.list()"):
+        page.evaluate("""(id) => {
+          ZC.profile.mapId = id; ZC.saveProfile();
+          ZC.startMatch();
+        }""", map_id)
+        page.wait_for_function("() => !ZC.getState().drop.on", timeout=8000)
+        page.wait_for_timeout(1400)
+        info = page.evaluate("() => ({ map: ZC.map.id || ZC.profile.mapId, feet: ZC.player.y - ZC.cam.y, joyTop: document.getElementById('joy-left').getBoundingClientRect().y, dead: ZC.player.dead })")
+        page.screenshot(path=str(SHOTS / f"phone-844x390-map-{map_id}.png"))
+        ok(info["dead"] or info["feet"] < info["joyTop"] + 8, f"mapa {map_id}: jugador visible sobre los controles", json.dumps(info))
     ok(not logs["errors"], "sin errores de consola en horizontal 844x390", "; ".join(logs["errors"][:5]))
     ctx.close()
     browser.close()

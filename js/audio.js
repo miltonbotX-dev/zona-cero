@@ -17,7 +17,11 @@
   };
   ZC.toggleMute = function () {
     ZC.muted = !ZC.muted;
-    if (ZC.hudMuteBtn) ZC.hudMuteBtn.textContent = ZC.muted ? "🔇" : "♪";
+    if (ZC.hudMuteBtn) {
+      // Sin emojis: el mismo símbolo, tachado por CSS (.off) cuando está en silencio
+      ZC.hudMuteBtn.textContent = "♪";
+      if (ZC.hudMuteBtn.classList) ZC.hudMuteBtn.classList.toggle("off", !!ZC.muted);
+    }
     if (!ZC.muted) ZC.unlockAudio();
   }
   ZC.sfx = function (kind, extra) {
@@ -70,6 +74,23 @@
       gain.gain.setValueAtTime(0.06, t);
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
       osc.start(t); osc.stop(t + 0.24);
+    } else if (kind === "tick") {
+      // Cuenta regresiva del despliegue
+      osc.type = "square";
+      osc.frequency.setValueAtTime(660, t);
+      filter.frequency.value = 2400;
+      gain.gain.setValueAtTime(0.035, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+      osc.start(t); osc.stop(t + 0.09);
+    } else if (kind === "land") {
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(150, t);
+      osc.frequency.exponentialRampToValueAtTime(60, t + 0.18);
+      filter.frequency.value = 900;
+      gain.gain.setValueAtTime(0.07, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      osc.start(t); osc.stop(t + 0.2);
+      ZC.noiseBurst(0.08, 0.04);
     } else if (kind === "win") {
       osc.type = "triangle";
       osc.frequency.setValueAtTime(440, t);

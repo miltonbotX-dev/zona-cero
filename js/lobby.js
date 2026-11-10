@@ -339,6 +339,7 @@
     if (ZC.profile.mapId && ZC.Maps && ZC.Maps.all[ZC.profile.mapId]) ZC.Maps.use(ZC.profile.mapId);
     ZC.state = "title";
     ZC.lobbyOpen = true;
+    if (ZC.setInMatch) ZC.setInMatch(false);
     ZC.hideOverlay("title-screen");
     ZC.hideOverlay("end-screen");
     ZC.showOverlay("lobby-screen");
@@ -366,7 +367,8 @@
     ZC.saveProfile();
     if (ZC.profile.mapId && ZC.Maps.all[ZC.profile.mapId]) ZC.Maps.use(ZC.profile.mapId);
     ZC.closeLobby();
-    ZC.startMatch();
+    // El toque en Iniciar es un gesto del usuario: ahí se puede pedir pantalla completa
+    ZC.startMatch({ requestFullscreen: true });
   };
 
   function onLobbyClick(e) {

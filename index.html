@@ -8,13 +8,14 @@
   <meta name="theme-color" content="#17130e" />
   <title>Zona Cero — prototipo táctico</title>
   <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=1.4.0" />
 </head>
 <body>
   <div id="app">
     <canvas id="game" width="1280" height="720" aria-label="Arena de Zona Cero"></canvas>
 
     <button class="icon-btn" id="btn-mute" title="Silenciar audio (M)" aria-label="Silenciar">♪</button>
+    <button class="icon-btn" id="btn-full" type="button" title="Pantalla completa" aria-label="Pantalla completa"><span class="full-ico" aria-hidden="true"></span></button>
 
     <div id="title-screen" class="overlay active">
       <div class="panel">
@@ -32,11 +33,11 @@
           </div>
           <div>
             <h3>Celular (horizontal)</h3>
-            <p>Joystick izquierdo: mover.<br/>Joystick derecho: apuntar y disparar.<br/>Botón salto (doble) y recarga.<br/>Cambia el arma con ARMA.</p>
+            <p>Joystick izquierdo: mover y guiar la caída.<br/>Joystick derecho: apuntar y disparar.<br/>Botón salto (doble) y recarga.<br/>Cambia el arma con ARMA.</p>
           </div>
           <div>
             <h3>Objetivo</h3>
-            <p>Battle royale local: la zona se encoge y daña a quien queda fuera. El último superviviente gana. No hay reaparición.</p>
+            <p>Battle royale local: caes en paracaídas con una cuenta 3-2-1, la zona se encoge y daña a quien queda fuera. El último superviviente gana. No hay reaparición.</p>
           </div>
           <div>
             <h3>Consejo</h3>
@@ -115,24 +116,26 @@
       <button class="touch-btn" id="btn-swap" type="button">Arma</button>
     </div>
 
+    <div id="safe-probe" aria-hidden="true"></div>
     <div id="portrait-warn">Gira el teléfono a horizontal para jugar Zona Cero.</div>
   </div>
-  <script src="js/zc.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/weapons.js"></script>
-  <script src="js/maps.js"></script>
-  <script src="js/entities.js"></script>
-  <script src="js/physics.js"></script>
-  <script src="js/combat.js"></script>
-  <script src="js/zone.js"></script>
-  <script src="js/bots.js"></script>
-  <script src="js/player.js"></script>
-  <script src="js/input.js"></script>
-  <script src="js/audio.js"></script>
-  <script src="js/appearance.js"></script>
-  <script src="js/render.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/lobby.js"></script>
-  <script src="js/game.js"></script>
+  <script src="js/zc.js?v=1.4.0"></script>
+  <script src="js/config.js?v=1.4.0"></script>
+  <script src="js/weapons.js?v=1.4.0"></script>
+  <script src="js/maps.js?v=1.4.0"></script>
+  <script src="js/entities.js?v=1.4.0"></script>
+  <script src="js/physics.js?v=1.4.0"></script>
+  <script src="js/combat.js?v=1.4.0"></script>
+  <script src="js/zone.js?v=1.4.0"></script>
+  <script src="js/bots.js?v=1.4.0"></script>
+  <script src="js/player.js?v=1.4.0"></script>
+  <script src="js/drop.js?v=1.4.0"></script>
+  <script src="js/input.js?v=1.4.0"></script>
+  <script src="js/audio.js?v=1.4.0"></script>
+  <script src="js/appearance.js?v=1.4.0"></script>
+  <script src="js/render.js?v=1.4.0"></script>
+  <script src="js/ui.js?v=1.4.0"></script>
+  <script src="js/lobby.js?v=1.4.0"></script>
+  <script src="js/game.js?v=1.4.0"></script>
 </body>
 </html>

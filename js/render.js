@@ -9,21 +9,51 @@
   var ZC = global.ZC;
   if (!ZC) throw new Error("Carga js/zc.js antes que js/render.js");
 
+  // Altura de los pies del jugador en pantalla (0 = arriba, 1 = abajo).
+  // En celular horizontal (alto < 500) queda más arriba para que el HUD inferior
+  // (joysticks y vida) no tape a quien está en el suelo. En la caída va más abajo
+  // para que el paracaídas y la cuenta regresiva no se pisen.
+  ZC.camFeetRatio = function () {
+    if (ZC.Drop && ZC.Drop.active()) return 0.8;
+    return ZC.viewH < 500 ? 0.58 : 0.64;
+  };
+  // Límite inferior de la cámara: puede bajar más allá del mundo para encuadrar
+  // el suelo a la altura de camFeetRatio (lo de abajo se pinta como tierra).
+  ZC.camMaxY = function () {
+    return Math.max(0, ZC.CFG.worldH - ZC.viewH, ZC.CFG.groundY - ZC.viewH * (ZC.viewH < 500 ? 0.58 : 0.64));
+  };
+
   ZC.updateCamera = function (dt) {
     if (!ZC.player) return;
-    const look = 90;
+    const look = ZC.viewW < 1000 ? 70 : 90;
     const tx = ZC.player.x - ZC.viewW * 0.5 + ZC.player.aimX * look;
-    const ty = ZC.player.y - ZC.viewH * 0.62 + ZC.player.aimY * 40;
+    const ty = ZC.player.y - ZC.viewH * ZC.camFeetRatio() + ZC.player.aimY * (ZC.viewH < 500 ? 22 : 40);
     const k = 1 - Math.pow(0.0016, dt * ZC.CFG.camLerp * 0.15);
     ZC.cam.x = ZC.util.lerp(ZC.cam.x, tx, ZC.util.clamp(k, 0, 1));
     ZC.cam.y = ZC.util.lerp(ZC.cam.y, ty, ZC.util.clamp(k, 0, 1));
     ZC.cam.x = ZC.util.clamp(ZC.cam.x, 0, Math.max(0, ZC.CFG.worldW - ZC.viewW));
-    ZC.cam.y = ZC.util.clamp(ZC.cam.y, 0, Math.max(0, ZC.CFG.worldH - ZC.viewH));
+    ZC.cam.y = ZC.util.clamp(ZC.cam.y, 0, ZC.camMaxY());
     if (ZC.cam.shake > 0) {
       ZC.cam.x += ZC.util.rand(-ZC.cam.shake, ZC.cam.shake);
       ZC.cam.y += ZC.util.rand(-ZC.cam.shake, ZC.cam.shake);
     }
   }
+
+  // Márgenes seguros del celular (muesca / bordes curvos). index.html tiene un
+  // div #safe-probe con padding = env(safe-area-inset-*); aquí se lee en px.
+  ZC.readSafeArea = function () {
+    var out = { l: 0, r: 0, t: 0, b: 0 };
+    try {
+      var el = document.getElementById("safe-probe");
+      if (!el || !global.getComputedStyle) return out;
+      var cs = global.getComputedStyle(el);
+      out.l = parseFloat(cs.paddingLeft) || 0;
+      out.r = parseFloat(cs.paddingRight) || 0;
+      out.t = parseFloat(cs.paddingTop) || 0;
+      out.b = parseFloat(cs.paddingBottom) || 0;
+    } catch (e) {}
+    return out;
+  };
 
   ZC.resize = function () {
     if (!ZC.canvas) return;
@@ -38,6 +68,7 @@
     ZC.canvas.style.width = w + "px";
     ZC.canvas.style.height = h + "px";
     if (ZC.ctx && ZC.ctx.setTransform) ZC.ctx.setTransform(ZC.dpr, 0, 0, ZC.dpr, 0, 0);
+    ZC.safe = ZC.readSafeArea();
   }
 
   ZC.draw = function () {
@@ -50,6 +81,7 @@
     ZC.drawZoneInsideHint();
     ZC.drawWorld();
     ZC.drawLoot();
+    if (ZC.drawDropWorld) ZC.drawDropWorld();
     ZC.drawActors();
     ZC.drawBullets();
     ZC.drawParticles();
@@ -57,6 +89,7 @@
     ZC.drawFloats();
     ZC.ctx.restore();
     ZC.drawHUD();
+    if (ZC.drawDropHUD) ZC.drawDropHUD();
   }
 
   // Paleta del escenario (tierra / militar). Cambia aquí el tono general del mundo.
@@ -117,8 +150,10 @@
   ZC.drawWorld = function () {
     const c = ZC.ctx, P = ZC.PALETTE;
     // Suelo de tierra apisonada
+    // La cámara puede bajar más que el mundo (ver camMaxY): rellena hasta el borde de la vista
+    const bottom = Math.max(ZC.CFG.worldH, ZC.cam.y + ZC.viewH + 40);
     c.fillStyle = P.ground;
-    c.fillRect(0, ZC.CFG.groundY, ZC.CFG.worldW, ZC.CFG.worldH - ZC.CFG.groundY);
+    c.fillRect(0, ZC.CFG.groundY, ZC.CFG.worldW, bottom - ZC.CFG.groundY);
     c.fillStyle = P.groundTop;
     c.fillRect(0, ZC.CFG.groundY, ZC.CFG.worldW, 4);
     c.fillStyle = P.groundBand;
@@ -126,7 +161,7 @@
     c.strokeStyle = P.groundLine;
     c.lineWidth = 1;
     for (let x = 0; x < ZC.CFG.worldW; x += 64) {
-      c.beginPath(); c.moveTo(x, ZC.CFG.groundY + 14); c.lineTo(x + 18, ZC.CFG.worldH); c.stroke();
+      c.beginPath(); c.moveTo(x, ZC.CFG.groundY + 14); c.lineTo(x + 18, bottom); c.stroke();
     }
 
     // Pasarelas de acero gastado con franja de aviso apagada
@@ -301,126 +336,199 @@
   // ---------------------------------------------------------------------------
   // SECCIÓN: HUD (vida, munición, cronómetro, top 3, ZC.killfeed, minimapa)
   // ---------------------------------------------------------------------------
+  // Dónde va cada panel del HUD en pantalla (px CSS). Un solo lugar para el diseño:
+  // drawHUD dibuja con estos rectángulos y las pruebas los comparan con los botones táctiles.
+  //  - Arriba izquierda: silencio y pantalla completa (botones DOM) y debajo el registro de bajas.
+  //  - Arriba centro: tiempo, vivos y estado de la zona.
+  //  - Arriba derecha: minimapa y, debajo, TOP 3 (como PUBG Mobile).
+  //  - Abajo centro: vida, arma y munición, entre los dos joysticks.
+  ZC.hudLayout = function () {
+    const W = ZC.viewW, H = ZC.viewH;
+    const compact = H < 500;
+    const safe = ZC.safe || { l: 0, r: 0, t: 0, b: 0 };
+    const L = Math.max(compact ? 10 : 16, safe.l + 6);
+    const R = Math.max(compact ? 10 : 16, safe.r + 6);
+    const T = compact ? 8 : 12;
+    const timer = { x: 0, y: T, w: compact ? 224 : 300, h: compact ? 40 : 52 };
+    timer.x = Math.round(W / 2 - timer.w / 2);
+    const mapW = compact ? 172 : 210;
+    const minimap = { x: W - R - mapW, y: T, w: mapW, h: compact ? 58 : 72 };
+    const top3 = { x: minimap.x, y: minimap.y + minimap.h + 6, w: mapW, h: compact ? 68 : 88 };
+    // Vida: centrada entre el joystick izquierdo y el grupo de botones de la derecha
+    const leftEdge = L + (compact ? 116 : 132) + 14;
+    const rightEdge = W - R - (compact ? 266 : 310) - 10;
+    let vw = compact ? 270 : 320;
+    const vh = compact ? 50 : 62;
+    let vx = Math.round(W / 2 - vw / 2);
+    if (vx + vw > rightEdge) vx = Math.max(leftEdge, rightEdge - vw);
+    if (vx < leftEdge) vx = leftEdge;
+    if (vx + vw > rightEdge) vw = Math.max(180, rightEdge - vx);
+    const vitals = { x: vx, y: H - vh - (compact ? 8 : 14) - safe.b, w: vw, h: vh };
+    const feed = { x: L, y: T + (compact ? 44 : 56), w: Math.max(140, timer.x - 10 - L), row: compact ? 18 : 22, rows: compact ? 4 : 6 };
+    return {
+      compact: compact, timer: timer, minimap: minimap, top3: top3, vitals: vitals, feed: feed,
+      warnY: timer.y + timer.h + (compact ? 22 : 30)
+    };
+  };
+
   ZC.drawHUD = function () {
     if (ZC.state === "title") {
       // Fondo vivo detrás del menú
       return;
     }
-    const pad = 16;
-    // Vida y arma (abajo-centro / izquierda)
-    if (ZC.player) {
-      const hx = pad, hy = ZC.viewH - 86;
-      ZC.ctx.fillStyle = "rgba(22,18,12,0.74)";
-      ZC.roundRect(ZC.ctx, hx, hy, 280, 70, 8); ZC.ctx.fill();
-      ZC.ctx.strokeStyle = "rgba(214,190,140,0.28)"; ZC.ctx.lineWidth = 1;
-      ZC.ctx.stroke();
-      ZC.ctx.fillStyle = "#b3a68a";
-      ZC.ctx.font = "11px Segoe UI, sans-serif";
-      ZC.ctx.textAlign = "left";
-      ZC.ctx.fillText(ZC.player.dead ? "ELIMINADO — espectando" : "VIDA", hx + 12, hy + 18);
-      ZC.ctx.fillStyle = "#2b251c";
-      ZC.ctx.fillRect(hx + 12, hy + 26, 256, 10);
+    const c = ZC.ctx;
+    const Lay = ZC.hudLayout();
+    const cp = Lay.compact;
+    ZC.hudRects = Lay;
+
+    // Vida, arma y munición (abajo centro). Durante la caída se oculta: abajo va la pista.
+    if (ZC.player && !(ZC.Drop && ZC.Drop.active())) {
+      const v = Lay.vitals;
+      c.fillStyle = "rgba(22,18,12,0.78)";
+      ZC.roundRect(c, v.x, v.y, v.w, v.h, 8); c.fill();
+      c.strokeStyle = "rgba(214,190,140,0.28)"; c.lineWidth = 1;
+      c.stroke();
+      const pad = 10;
       const hr = ZC.util.clamp(ZC.player.hp / ZC.player.maxHp, 0, 1);
-      ZC.ctx.fillStyle = hr > 0.35 ? "#8fb35a" : "#c8553d";
-      ZC.ctx.fillRect(hx + 12, hy + 26, 256 * hr, 10);
+      // Barra de vida con número
+      const bx = v.x + pad, by = v.y + (cp ? 8 : 10), bwid = v.w - pad * 2, bh = cp ? 12 : 14;
+      c.fillStyle = "#2b251c";
+      c.fillRect(bx, by, bwid, bh);
+      c.fillStyle = hr > 0.35 ? "#8fb35a" : "#c8553d";
+      c.fillRect(bx, by, bwid * hr, bh);
+      c.fillStyle = "#17130e";
+      c.font = "bold " + (cp ? 10 : 11) + "px Segoe UI, sans-serif";
+      c.textAlign = "left";
+      c.fillText(ZC.player.dead ? "ELIMINADO" : "VIDA", bx + 5, by + bh - 2);
+      c.textAlign = "right";
+      c.fillStyle = "#efe6d2";
+      c.fillText(ZC.player.dead ? "espectando" : String(Math.ceil(ZC.player.hp)), bx + bwid - 4, by + bh - 2);
+      // Arma y munición
       const w = ZC.WEAPONS[ZC.player.gun.current];
       const clip = ZC.player.gun[ZC.player.gun.current];
-      ZC.ctx.fillStyle = w.color;
-      ZC.ctx.font = "bold 16px Segoe UI, sans-serif";
-      ZC.ctx.fillText(w.name, hx + 12, hy + 56);
-      ZC.ctx.fillStyle = "#efe6d2";
-      ZC.ctx.fillText(clip.mag + " / " + clip.reserve, hx + 118, hy + 56);
+      const ly = v.y + v.h - (cp ? 9 : 12);
+      c.textAlign = "left";
+      c.fillStyle = w.color;
+      c.font = "bold " + (cp ? 14 : 16) + "px Segoe UI, sans-serif";
+      c.fillText(w.name.toUpperCase(), bx, ly);
+      c.textAlign = "right";
       if (ZC.player.gun.reloading > 0) {
-        ZC.ctx.fillStyle = "#d99a3a";
-        ZC.ctx.font = "12px Segoe UI, sans-serif";
-        ZC.ctx.fillText("RECARGANDO", hx + 188, hy + 56);
+        c.fillStyle = "#d99a3a";
+        c.font = "bold " + (cp ? 12 : 13) + "px Segoe UI, sans-serif";
+        c.fillText("RECARGANDO", bx + bwid, ly);
+      } else {
+        c.fillStyle = clip.mag === 0 ? "#c8553d" : "#efe6d2";
+        c.font = "bold " + (cp ? 18 : 20) + "px Segoe UI, sans-serif";
+        const magTxt = String(clip.mag);
+        c.fillText(magTxt, bx + bwid - (cp ? 34 : 40), ly);
+        c.fillStyle = "#b3a68a";
+        c.font = (cp ? 13 : 14) + "px Segoe UI, sans-serif";
+        c.fillText("/ " + clip.reserve, bx + bwid, ly);
       }
     }
 
-    // Cronómetro y vivos
+    // Cronómetro y vivos (arriba centro)
+    const t = Lay.timer;
     const mm = Math.floor(ZC.match.elapsed / 60);
     const ss = Math.floor(ZC.match.elapsed % 60);
     const time = (mm < 10 ? "0" : "") + mm + ":" + (ss < 10 ? "0" : "") + ss;
-    ZC.ctx.textAlign = "center";
-    ZC.ctx.fillStyle = "rgba(22,18,12,0.72)";
-    ZC.roundRect(ZC.ctx, ZC.viewW / 2 - 150, 12, 300, 52, 8); ZC.ctx.fill();
-    ZC.ctx.fillStyle = "#e0b25c";
-    ZC.ctx.font = "bold 20px Segoe UI, sans-serif";
-    ZC.ctx.fillText(time, ZC.viewW / 2 - 70, 36);
-    ZC.ctx.fillStyle = "#efe6d2";
-    ZC.ctx.font = "bold 16px Segoe UI, sans-serif";
-    ZC.ctx.fillText(ZC.match.alive + " vivos", ZC.viewW / 2 + 70, 36);
-    ZC.ctx.fillStyle = ZC.zone.shrinking ? "#d99a3a" : "#b3a68a";
-    ZC.ctx.font = "11px Segoe UI, sans-serif";
-    ZC.ctx.fillText(ZC.zoneLabel() + "  ·  DPS fuera " + Math.round(ZC.zone.dps), ZC.viewW / 2, 54);
+    c.textAlign = "center";
+    c.fillStyle = "rgba(22,18,12,0.72)";
+    ZC.roundRect(c, t.x, t.y, t.w, t.h, 8); c.fill();
+    c.fillStyle = "#e0b25c";
+    c.font = "bold " + (cp ? 17 : 20) + "px Segoe UI, sans-serif";
+    c.fillText(time, t.x + t.w * 0.27, t.y + (cp ? 21 : 24));
+    c.fillStyle = "#efe6d2";
+    c.font = "bold " + (cp ? 14 : 16) + "px Segoe UI, sans-serif";
+    c.fillText(ZC.match.alive + " vivos", t.x + t.w * 0.73, t.y + (cp ? 21 : 24));
+    c.fillStyle = ZC.zone.shrinking ? "#d99a3a" : "#b3a68a";
+    c.font = (cp ? 10 : 11) + "px Segoe UI, sans-serif";
+    const zl = (ZC.Drop && ZC.Drop.active()) ? "DESPLIEGUE" : ZC.zoneLabel();
+    c.fillText(zl + "  ·  DPS fuera " + Math.round(ZC.zone.dps), t.x + t.w / 2, t.y + t.h - (cp ? 7 : 9));
 
-    // Top 3
+    // Minimapa (arriba derecha)
+    const m = Lay.minimap;
+    c.fillStyle = "rgba(22,18,12,0.72)";
+    ZC.roundRect(c, m.x, m.y, m.w, m.h, 6); c.fill();
+    const sx = (m.w - 12) / ZC.CFG.worldW, sy = (m.h - 12) / ZC.CFG.worldH;
+    c.save();
+    c.beginPath(); ZC.roundRect(c, m.x, m.y, m.w, m.h, 6); c.clip();
+    c.fillStyle = "rgba(224,178,92,0.16)";
+    c.beginPath();
+    c.arc(m.x + 6 + ZC.zone.cx * sx, m.y + 6 + ZC.zone.cy * sy, ZC.zone.r * sx, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = "rgba(214,190,140,0.18)";
+    c.fillRect(m.x + 6, m.y + 6 + ZC.CFG.groundY * sy, m.w - 12, 1);
+    ZC.actors.forEach(function (a) {
+      if (a.dead) return;
+      c.fillStyle = a.isPlayer ? "#f0d79a" : a.color;
+      const s2 = a.isPlayer ? 5 : 4;
+      c.fillRect(m.x + 6 + a.x * sx - s2 / 2, m.y + 6 + a.y * sy - s2 / 2, s2, s2);
+    });
+    c.restore();
+    c.strokeStyle = "rgba(214,190,140,0.28)";
+    c.lineWidth = 1;
+    ZC.roundRect(c, m.x, m.y, m.w, m.h, 6); c.stroke();
+
+    // TOP 3 (debajo del minimapa)
     const ranked = ZC.actors.slice().sort(function (a, b) {
       if (a.dead !== b.dead) return a.dead ? 1 : -1;
       return b.kills - a.kills;
     }).slice(0, 3);
-    ZC.ctx.textAlign = "left";
-    const tx = ZC.viewW - 210, ty = 12;
-    ZC.ctx.fillStyle = "rgba(22,18,12,0.74)";
-    ZC.roundRect(ZC.ctx, tx, ty, 198, 92, 8); ZC.ctx.fill();
-    ZC.ctx.fillStyle = "#d99a3a";
-    ZC.ctx.font = "bold 11px Segoe UI, sans-serif";
-    ZC.ctx.fillText("TOP 3", tx + 12, ty + 18);
+    const tp = Lay.top3;
+    const row = cp ? 16 : 20;
+    c.textAlign = "left";
+    c.fillStyle = "rgba(22,18,12,0.74)";
+    ZC.roundRect(c, tp.x, tp.y, tp.w, tp.h, 8); c.fill();
+    c.fillStyle = "#d99a3a";
+    c.font = "bold " + (cp ? 10 : 11) + "px Segoe UI, sans-serif";
+    c.fillText("TOP 3", tp.x + 10, tp.y + (cp ? 14 : 17));
+    c.textAlign = "right";
+    c.fillStyle = "#8a7e66";
+    c.fillText("BAJAS", tp.x + tp.w - 10, tp.y + (cp ? 14 : 17));
     ranked.forEach(function (a, i) {
-      ZC.ctx.fillStyle = a.dead ? "#7a705e" : a.color;
-      ZC.ctx.font = "13px Segoe UI, sans-serif";
-      ZC.ctx.fillText((i + 1) + ". " + a.name + (a.dead ? " ✕" : ""), tx + 12, ty + 38 + i * 18);
-      ZC.ctx.textAlign = "right";
-      ZC.ctx.fillStyle = "#efe6d2";
-      ZC.ctx.fillText(String(a.kills), tx + 186, ty + 38 + i * 18);
-      ZC.ctx.textAlign = "left";
+      const yy = tp.y + (cp ? 31 : 38) + i * row;
+      c.textAlign = "left";
+      c.fillStyle = a.dead ? "#7a705e" : a.color;
+      if (a.isPlayer && !a.dead) c.fillStyle = "#f0d79a";
+      c.font = (cp ? 12 : 13) + "px Segoe UI, sans-serif";
+      c.fillText((i + 1) + ". " + a.name + (a.dead ? " (caído)" : ""), tp.x + 10, yy);
+      c.textAlign = "right";
+      c.fillStyle = "#efe6d2";
+      c.fillText(String(a.kills), tp.x + tp.w - 10, yy);
     });
 
-    // Killfeed
-    ZC.ctx.textAlign = "left";
-    ZC.killfeed.forEach(function (k, i) {
-      ZC.ctx.globalAlpha = ZC.util.clamp(k.life / 1.2, 0, 1);
-      ZC.ctx.fillStyle = "rgba(22,18,12,0.58)";
-      ZC.ctx.fillRect(16, 80 + i * 22, Math.min(360, 20 + k.text.length * 7.2), 20);
-      ZC.ctx.fillStyle = "#e6dcc6";
-      ZC.ctx.font = "12px Segoe UI, sans-serif";
-      ZC.ctx.fillText(k.text, 24, 94 + i * 22);
+    // Registro de bajas (arriba izquierda, bajo los botones)
+    const f = Lay.feed;
+    c.textAlign = "left";
+    ZC.killfeed.slice(0, f.rows).forEach(function (k, i) {
+      c.globalAlpha = ZC.util.clamp(k.life / 1.2, 0, 1);
+      c.font = (cp ? 11 : 12) + "px Segoe UI, sans-serif";
+      const tw = c.measureText ? c.measureText(k.text).width : k.text.length * 6.5;
+      const bw = Math.min(f.w, tw + 16);
+      c.fillStyle = "rgba(22,18,12,0.58)";
+      c.fillRect(f.x, f.y + i * f.row, bw, f.row - 2);
+      c.save();
+      c.beginPath(); c.rect(f.x, f.y + i * f.row, bw, f.row - 2); c.clip();
+      c.fillStyle = "#e6dcc6";
+      c.fillText(k.text, f.x + 8, f.y + i * f.row + (cp ? 12 : 14));
+      c.restore();
     });
-    ZC.ctx.globalAlpha = 1;
+    c.globalAlpha = 1;
 
-    // Minimapa
-    const mw = 176, mh = 64, mx = ZC.viewW - 210, my = 112;
-    ZC.ctx.fillStyle = "rgba(22,18,12,0.72)";
-    ZC.roundRect(ZC.ctx, mx, my, mw, mh, 6); ZC.ctx.fill();
-    const sx = (mw - 12) / ZC.CFG.worldW, sy = (mh - 12) / ZC.CFG.worldH;
-    ZC.ctx.save();
-    ZC.ctx.beginPath(); ZC.roundRect(ZC.ctx, mx, my, mw, mh, 6); ZC.ctx.clip();
-    ZC.ctx.fillStyle = "rgba(224,178,92,0.16)";
-    ZC.ctx.beginPath();
-    ZC.ctx.arc(mx + 6 + ZC.zone.cx * sx, my + 6 + ZC.zone.cy * sy, ZC.zone.r * sx, 0, Math.PI * 2);
-    ZC.ctx.fill();
-    ZC.actors.forEach(function (a) {
-      if (a.dead) return;
-      ZC.ctx.fillStyle = a.isPlayer ? "#f0d79a" : a.color;
-      ZC.ctx.fillRect(mx + 6 + a.x * sx - 2, my + 6 + a.y * sy - 2, 4, 4);
-    });
-    ZC.ctx.restore();
-    ZC.ctx.strokeStyle = "rgba(214,190,140,0.28)";
-    ZC.roundRect(ZC.ctx, mx, my, mw, mh, 6); ZC.ctx.stroke();
-
-    // Aviso fuera de zona
+    // Aviso fuera de zona (bajo el cronómetro, sin tapar el suelo)
     if (ZC.player && !ZC.player.dead && !ZC.inZone(ZC.player.x, ZC.player.y - 16)) {
-      ZC.ctx.textAlign = "center";
-      ZC.ctx.fillStyle = "rgba(214,96,64,0.95)";
-      ZC.ctx.font = "bold 22px Segoe UI, sans-serif";
-      ZC.ctx.fillText("¡VUELVE A LA ZONA!", ZC.viewW / 2, ZC.viewH - 110);
+      c.textAlign = "center";
+      c.fillStyle = "rgba(214,96,64,0.95)";
+      c.font = "bold " + (cp ? 17 : 22) + "px Segoe UI, sans-serif";
+      c.fillText("VUELVE A LA ZONA", ZC.viewW / 2, Lay.warnY);
     }
 
     if (ZC.state === "playing" && ZC.player && ZC.player.dead && !ZC.match.winner) {
-      ZC.ctx.textAlign = "center";
-      ZC.ctx.fillStyle = "rgba(239,230,210,0.85)";
-      ZC.ctx.font = "16px Segoe UI, sans-serif";
-      ZC.ctx.fillText("Espectando el cierre · puesto provisional #" + (ZC.match.playerPlace || ZC.match.alive + 1), ZC.viewW / 2, 92);
+      c.textAlign = "center";
+      c.fillStyle = "rgba(239,230,210,0.85)";
+      c.font = (cp ? 13 : 16) + "px Segoe UI, sans-serif";
+      c.fillText("Espectando el cierre · puesto provisional #" + (ZC.match.playerPlace || ZC.match.alive + 1), ZC.viewW / 2, Lay.warnY + (cp ? 20 : 26));
     }
   }
 })(typeof window !== "undefined" ? window : globalThis);

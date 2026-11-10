@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.5.0 — entrada tipo PUBG Mobile y balas desde el cañón (10 nov 2026, America/Lima)
+
+Primera tanda del camino hacia un PUBG Mobile en 2D: la entrada al juego. Lobby, aspectos, mapas con imagen, HUD de celular, caída 3-2-1 y controles arrastrables de la 1.2 a la 1.4 quedan igual. La agresividad de los bots no cambia.
+
+- Nueva entrada (`js/boot.js`, `#boot-screen`): al abrir la página sale una presentación con el logo de Zona Cero, luego una pantalla de carga y después el lobby. Ya no se pasa por el menú viejo.
+- La carga es real: espera el logo y la imagen de fondo de cada mapa. La barra sube suave pero nunca muestra más de lo que de verdad cargó. Si algo tarda más de 9 s entra igual con el porcentaje real y lo dice («Algunos fondos siguen cargando»); no se queda colgada.
+- Un toque (o Enter) acorta la presentación; con todo listo sale «Toca para entrar» y, si no tocas, pasa sola en menos de un segundo.
+- En retrato, el aviso de girar el celular espera a que termine la entrada en lugar de taparla.
+- Logo propio (`assets/logo.svg`): anillo de zona ámbar, mira y una Z de plantilla sobre oliva. Es la insignia del lobby y el favicon (antes era un favicon vacío). `assets/logo-192.png` queda como ícono del celular.
+- Lobby más cuidado: el personaje está quieto con el arma en la mano (antes caminaba en el sitio) y cada pocos segundos hace un disparo de muestra con fogonazo y estela desde la boca del arma. Junto a él, una ficha «En mano» con el arma, su munición y lo que llevas en la mochila (tocarla abre Mochila). La ficha del mapa lleva de fondo la miniatura del mapa. Mochila, Aspecto, Ajustes e Iniciar siguen donde estaban.
+- El menú con los controles sigue disponible desde la flecha del lobby.
+- Arreglado: las balas salían de la cintura. Ahora salen de la boca del arma, con el jugador y con los bots, con fusil y escopeta y con los tres aspectos. Hay una sola geometría para dibujar el arma y para disparar (`ZC.GUN_RIG` / `ZC.gunRig` en `js/weapons.js`); el fogonazo, la estela y las chispas nacen en el mismo punto.
+- El personaje se voltea hacia donde apunta (antes, al apuntar a la izquierda, el arma cruzaba el cuerpo). El arma va a la altura del pecho y la puntería del ratón se mide desde ahí, así la bala pasa por el cursor.
+- Las balas golpean el cuerpo como se dibuja (de los pies al casco, `ZC.CFG.hurtH`); antes solo contaban las piernas y el torso bajo. Moverse y saltar no cambia. Una caja delante sigue frenando un disparo recto.
+- `index.html` pide todo con `?v=1.5.0`.
+- Pruebas: 326 de humo (`node tests/smoke.js`, 49 nuevas sobre la entrada, el logo y el origen de las balas) y 62 en navegador (`tests/browser.py`, 17 nuevas: presentación, carga sin mentir, paso al lobby, retrato, bala desde el cañón en PC y celular, lobby sin solapes en 844x390).
+
 ## 1.4.0 — pantalla de celular ordenada y caída con cuenta regresiva (10 nov 2026, America/Lima)
 
 Primer paso hacia un PUBG Mobile en 2D. Lobby, aspectos, mapas con imagen, ajustes y controles arrastrables de la 1.2 y la 1.3 quedan igual.

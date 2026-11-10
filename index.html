@@ -6,9 +6,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#17130e" />
-  <title>Zona Cero — prototipo táctico</title>
-  <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="css/style.css?v=1.4.0" />
+  <title>Zona Cero</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg?v=1.5.0" />
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/logo-192.png?v=1.5.0" />
+  <link rel="apple-touch-icon" href="assets/logo-192.png?v=1.5.0" />
+  <link rel="stylesheet" href="css/style.css?v=1.5.0" />
 </head>
 <body>
   <div id="app">
@@ -17,7 +19,22 @@
     <button class="icon-btn" id="btn-mute" title="Silenciar audio (M)" aria-label="Silenciar">♪</button>
     <button class="icon-btn" id="btn-full" type="button" title="Pantalla completa" aria-label="Pantalla completa"><span class="full-ico" aria-hidden="true"></span></button>
 
-    <div id="title-screen" class="overlay active">
+    <!-- Entrada (js/boot.js): logo, carga real de mapas y luego el lobby -->
+    <div id="boot-screen" class="overlay active boot" data-phase="splash">
+      <div class="boot-brand">
+        <img id="boot-logo" class="boot-logo" src="assets/logo.svg?v=1.5.0" alt="" width="128" height="128" />
+        <p class="boot-word">Zona Cero</p>
+        <p class="boot-tag">Battle royale táctico</p>
+      </div>
+      <div class="boot-load" aria-live="polite">
+        <div class="boot-bar"><span id="boot-fill"></span></div>
+        <div class="boot-meta"><span id="boot-status">Preparando</span><span id="boot-pct">0%</span></div>
+        <p class="boot-tap" id="boot-tap" hidden>Toca para entrar</p>
+      </div>
+      <p class="boot-foot">Prototipo para un jugador · bots locales</p>
+    </div>
+
+    <div id="title-screen" class="overlay" hidden>
       <div class="panel">
         <p class="kicker">Prototipo táctico · último superviviente</p>
         <h1>Zona Cero</h1>
@@ -64,20 +81,25 @@
     <div id="lobby-screen" class="overlay lobby-shell" hidden>
       <header class="lobby-top">
         <div class="lobby-id">
-          <span class="lobby-badge" aria-hidden="true">ZC</span>
+          <img class="lobby-badge" src="assets/logo.svg?v=1.5.0" alt="" width="46" height="46" />
           <div>
             <input id="lobby-name" class="lobby-name" type="text" maxlength="16" autocomplete="off" value="Tú" aria-label="Nombre" />
             <p class="lobby-sub" id="lobby-sub">Operativo</p>
           </div>
         </div>
         <div class="lobby-top-actions">
-          <button type="button" class="lobby-icon" id="btn-lobby-back" title="Menú">←</button>
+          <button type="button" class="lobby-icon" id="btn-lobby-back" title="Menú y controles" aria-label="Menú y controles">←</button>
           <button type="button" class="lobby-icon" data-panel="settings" title="Ajustes" aria-label="Ajustes">⚙</button>
         </div>
       </header>
 
       <div class="lobby-stage">
         <canvas id="lobby-preview" width="480" height="640" aria-label="Vista del personaje"></canvas>
+        <button type="button" class="lobby-gear" data-panel="inventory" aria-label="Arma equipada">
+          <span class="kicker">En mano</span>
+          <strong id="lobby-gear-name">Fusil</strong>
+          <span id="lobby-gear-meta">24 / 48</span>
+        </button>
       </div>
 
       <nav class="lobby-dock" aria-label="Preparación">
@@ -86,7 +108,7 @@
         <button type="button" data-panel="settings"><span>Ajustes</span></button>
       </nav>
 
-      <button type="button" class="lobby-map-card" data-panel="map">
+      <button type="button" class="lobby-map-card" id="lobby-map-card" data-panel="map">
         <span class="kicker">Clásico</span>
         <strong id="lobby-map-name">Nave industrial</strong>
         <span id="lobby-map-blurb">Toca para cambiar de mapa</span>
@@ -119,23 +141,24 @@
     <div id="safe-probe" aria-hidden="true"></div>
     <div id="portrait-warn">Gira el teléfono a horizontal para jugar Zona Cero.</div>
   </div>
-  <script src="js/zc.js?v=1.4.0"></script>
-  <script src="js/config.js?v=1.4.0"></script>
-  <script src="js/weapons.js?v=1.4.0"></script>
-  <script src="js/maps.js?v=1.4.0"></script>
-  <script src="js/entities.js?v=1.4.0"></script>
-  <script src="js/physics.js?v=1.4.0"></script>
-  <script src="js/combat.js?v=1.4.0"></script>
-  <script src="js/zone.js?v=1.4.0"></script>
-  <script src="js/bots.js?v=1.4.0"></script>
-  <script src="js/player.js?v=1.4.0"></script>
-  <script src="js/drop.js?v=1.4.0"></script>
-  <script src="js/input.js?v=1.4.0"></script>
-  <script src="js/audio.js?v=1.4.0"></script>
-  <script src="js/appearance.js?v=1.4.0"></script>
-  <script src="js/render.js?v=1.4.0"></script>
-  <script src="js/ui.js?v=1.4.0"></script>
-  <script src="js/lobby.js?v=1.4.0"></script>
-  <script src="js/game.js?v=1.4.0"></script>
+  <script src="js/zc.js?v=1.5.0"></script>
+  <script src="js/config.js?v=1.5.0"></script>
+  <script src="js/weapons.js?v=1.5.0"></script>
+  <script src="js/maps.js?v=1.5.0"></script>
+  <script src="js/entities.js?v=1.5.0"></script>
+  <script src="js/physics.js?v=1.5.0"></script>
+  <script src="js/combat.js?v=1.5.0"></script>
+  <script src="js/zone.js?v=1.5.0"></script>
+  <script src="js/bots.js?v=1.5.0"></script>
+  <script src="js/player.js?v=1.5.0"></script>
+  <script src="js/drop.js?v=1.5.0"></script>
+  <script src="js/input.js?v=1.5.0"></script>
+  <script src="js/audio.js?v=1.5.0"></script>
+  <script src="js/appearance.js?v=1.5.0"></script>
+  <script src="js/render.js?v=1.5.0"></script>
+  <script src="js/ui.js?v=1.5.0"></script>
+  <script src="js/lobby.js?v=1.5.0"></script>
+  <script src="js/boot.js?v=1.5.0"></script>
+  <script src="js/game.js?v=1.5.0"></script>
 </body>
 </html>

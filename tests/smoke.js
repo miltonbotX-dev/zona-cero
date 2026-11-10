@@ -50,9 +50,17 @@ ok(!/cdn|unpkg|jsdelivr|googleapis|cloudflare/i.test(html), "sin CDN");
 ok(!/WebSocket|firebase|socket\.io/i.test(html), "sin red / multijugador");
 ok(!/adsbygoogle|doubleclick|adsense/i.test(html), "sin anuncios reales");
 ok(/id="end-screen"[^>]*\bhidden\b/.test(html), "end-screen nace con atributo hidden");
-ok(!/<div id="title-screen"[^>]*\bhidden\b/.test(html), "title-screen no nace con hidden");
+ok(/<div id="boot-screen"[^>]*class="overlay active boot"/.test(html) && !/<div id="boot-screen"[^>]*\bhidden\b/.test(html), "boot-screen (logo y carga) es lo primero que se ve");
+ok(/<div id="title-screen"[^>]*\bhidden\b/.test(html), "title-screen nace oculto (ahora se entra por la carga al lobby)");
+ok(html.indexOf('id="boot-screen"') < html.indexOf('id="title-screen"'), "la entrada va antes del menú en el HTML");
+ok(/id="boot-logo"[^>]*src="assets\/logo\.svg/.test(html), "la entrada muestra el logo de Zona Cero");
+ok(/id="boot-fill"/.test(html) && /id="boot-pct"/.test(html) && /id="boot-status"/.test(html), "barra, porcentaje y estado de carga");
+ok(/rel="icon"[^>]*href="assets\/logo\.svg/.test(html) && !/href="data:,"/.test(html), "favicon propio (logo), ya no el vacío data:,");
+ok(fs.existsSync(path.join(root, "assets", "logo.svg")) && fs.existsSync(path.join(root, "assets", "logo-192.png")), "existen assets/logo.svg y logo-192.png");
+ok(!/neón|neon/i.test(fs.readFileSync(path.join(root, "assets", "logo.svg"), "utf8")) && !/#5ce4ff|#6aefff|#2bb7d6/i.test(fs.readFileSync(path.join(root, "assets", "logo.svg"), "utf8")), "logo en paleta tierra, sin cian");
+ok(/id="lobby-gear-name"/.test(html), "el lobby muestra el arma en mano junto al personaje");
 ok(/href="css\/style\.css(\?v=[\w.]+)?"/.test(html), "enlaza css/style.css");
-ok(/\?v=1\.4\.0/.test(html), "index.html marca los archivos con la versión 1.4.0 (sin caché viejo)");
+ok(/\?v=1\.5\.0/.test(html) && !/\?v=1\.4\.0/.test(html), "index.html marca los archivos con la versión 1.5.0 (sin caché viejo)");
 
 const cssPath = path.join(root, "css", "style.css");
 ok(fs.existsSync(cssPath), "existe css/style.css");
@@ -68,7 +76,7 @@ html.replace(/<script\s+src="([^"?]+)(?:\?v=[\w.]+)?"><\/script>/g, function (_,
 const expected = [
   "js/zc.js", "js/config.js", "js/weapons.js", "js/maps.js", "js/entities.js",
   "js/physics.js", "js/combat.js", "js/zone.js", "js/bots.js", "js/player.js",
-  "js/drop.js", "js/input.js", "js/audio.js", "js/appearance.js", "js/render.js", "js/ui.js", "js/lobby.js", "js/game.js"
+  "js/drop.js", "js/input.js", "js/audio.js", "js/appearance.js", "js/render.js", "js/ui.js", "js/lobby.js", "js/boot.js", "js/game.js"
 ];
 ok(scriptSrcs.length === expected.length, "carga " + expected.length + " scripts locales", String(scriptSrcs.length));
 ok(scriptSrcs.every(function (s, i) { return s === expected[i]; }),
@@ -165,10 +173,12 @@ function getEl(id) {
 const canvas = getEl("game");
 const app = getEl("app");
 canvas.parentElement = app;
-// Estado inicial como en el HTML: resultado hidden, menú visible.
+// Estado inicial: resultado hidden, menú visible (como antes de la v1.5; las pruebas
+// de lógica lo usan así). La sección «Entrada» prueba la secuencia nueva.
 getEl("end-screen").hidden = true;
 getEl("title-screen").hidden = false;
 getEl("title-screen").classList.add("active");
+getEl("boot-screen").hidden = true;
 getEl("lobby-screen").hidden = true;
 getEl("layout-bar").hidden = true;
 
@@ -732,6 +742,207 @@ ZC.cfg.dropTime = 0;
 ZC.startMatch();
 ok(!ZC.Drop.active() && ZC.map.spawns.some(function (sp) { return sp.x === ZC.__test.player.x && sp.y === ZC.__test.player.y; }),
   "con dropTime 0 se aparece en su punto como antes");
+
+// ---------------------------------------------------------------------------
+// v1.5) Entrada: logo -> carga -> lobby
+// ---------------------------------------------------------------------------
+console.log("v1.5 Entrada (logo, carga, lobby)");
+ok(ZC.Boot && typeof ZC.Boot.step === "function" && typeof ZC.Boot.skip === "function", "ZC.Boot existe con step/skip");
+ok(ZC.Boot.phase === "idle", "en modo test la entrada no arranca sola");
+(function () {
+  // Imágenes falsas que cargan cuando el test quiere
+  const fakes = [];
+  function fakeImg() {
+    const im = { complete: false, naturalWidth: 0, _l: {},
+      addEventListener: function (t, cb) { this._l[t] = cb; },
+      getAttribute: function () { return "assets/logo.svg?v=1.5.0"; } };
+    im.finish = function (fail) { im.complete = true; im.naturalWidth = fail ? 0 : 100; (im._l[fail ? "error" : "load"] || function () {})(); };
+    fakes.push(im);
+    return im;
+  }
+  const savedImgs = ZC.Maps.images;
+  ZC.Maps.images = {};
+  ZC.Maps.list().forEach(function (id) { ZC.Maps.images[ZC.Maps.all[id].backgroundImage] = fakeImg(); });
+  const logo = fakeImg();
+  const savedLogo = elements["boot-logo"];
+  elements["boot-logo"] = logo;
+  ZC.lobbyOpen = false;
+  getEl("lobby-screen").hidden = true;
+  ZC.Boot.start({ manual: true, timing: { splash: 1.4, minLoad: 0.9, readyHold: 0.8, maxWait: 9 } });
+  ok(ZC.Boot.phase === "splash" && !getEl("boot-screen").hidden, "al abrir: presentación con el logo visible");
+  ok(ZC.Boot.items.length === ZC.Maps.list().length + 1, "la carga espera los fondos de cada mapa y el logo", String(ZC.Boot.items.length));
+  ok(getEl("app").classList.contains("booting"), "#app.booting durante la entrada (el aviso de girar espera)");
+  ZC.Boot.step(0.5);
+  ok(ZC.Boot.phase === "splash", "la presentación dura un momento");
+  ZC.Boot.step(1.0);
+  ok(ZC.Boot.phase === "loading", "luego pasa a la pantalla de carga");
+  for (let i = 0; i < 40; i++) ZC.Boot.step(0.05);
+  ok(ZC.Boot.phase === "loading" && ZC.Boot.shown === 0, "sin nada cargado la barra no avanza (no miente)", ZC.Boot.shown);
+  fakes[0].finish(); fakes[1].finish();
+  for (let i = 0; i < 6; i++) ZC.Boot.step(0.05);
+  const partial = ZC.Boot.shown;
+  ok(partial > 0 && partial <= 0.5 + 1e-9, "con la mitad cargada la barra no pasa del 50 %", partial);
+  ok(getEl("boot-pct").textContent === Math.floor(partial * 100) + "%", "el porcentaje en pantalla coincide con la barra", getEl("boot-pct").textContent);
+  ok(ZC.Boot.tap() === "loading", "tocar durante la carga no salta nada");
+  fakes.slice(2).forEach(function (f, i) { f.finish(i === 0); }); // un fondo falla: cuenta como terminado (usa su degradado)
+  ZC.Boot.step(0.05);
+  ok(ZC.Boot.phase === "ready" && ZC.Boot.shown === 1, "con todo cargado llega a 100 % y queda lista");
+  ok(!getEl("boot-tap").hidden, "aparece «Toca para entrar»");
+  ok(!ZC.lobbyOpen, "todavía no entra al lobby");
+  ZC.Boot.step(0.9);
+  ok(ZC.Boot.phase === "done" && getEl("boot-screen").hidden, "pasa sola tras un momento y se oculta la carga");
+  ok(ZC.lobbyOpen && !getEl("lobby-screen").hidden, "termina en el lobby");
+  ok(!getEl("app").classList.contains("booting"), "quita #app.booting al terminar");
+  ok(getEl("title-screen").hidden, "el menú viejo no se interpone");
+  if (ZC.closeLobby) ZC.closeLobby();
+
+  // Toque para acortar y tope de espera
+  ZC.Boot.phase = "idle";
+  fakes.forEach(function (f) { f.complete = false; f.naturalWidth = 0; });
+  ZC.Boot.start({ manual: true });
+  ok(ZC.Boot.tap() === "loading", "un toque en la presentación pasa a la carga");
+  for (let i = 0; i < 200 && ZC.Boot.phase === "loading"; i++) ZC.Boot.step(0.1);
+  ok(ZC.Boot.phase === "ready" && ZC.Boot.timedOut && ZC.Boot.shown < 1, "si algo no carga, no se cuelga: entra tras maxWait sin fingir 100 %", ZC.Boot.phase + " " + ZC.Boot.shown);
+  ok(/siguen cargando/.test(getEl("boot-status").textContent), "y lo dice en el estado", getEl("boot-status").textContent);
+  ok(ZC.Boot.tap() === "done" && ZC.lobbyOpen, "con la carga lista, un toque entra al lobby");
+  if (ZC.closeLobby) ZC.closeLobby();
+  ZC.Boot.phase = "idle";
+  ZC.__test.skipBoot();
+  ok(ZC.Boot.phase === "done" && ZC.lobbyOpen, "skipBoot entra directo al lobby");
+  if (ZC.closeLobby) ZC.closeLobby();
+  ZC.Maps.images = savedImgs;
+  if (savedLogo) elements["boot-logo"] = savedLogo; else delete elements["boot-logo"];
+  getEl("title-screen").hidden = false;
+})();
+
+// ---------------------------------------------------------------------------
+// v1.5) Las balas salen del cañón, no de la cintura
+// ---------------------------------------------------------------------------
+console.log("v1.5 Origen del disparo (boca del arma)");
+// Contexto espía que sigue la matriz de transformación para saber en qué punto
+// del mundo se dibuja el fogonazo (arc pequeño amarillo) y la boca del cañón.
+function trackingCtx() {
+  let m = [1, 0, 0, 1, 0, 0];
+  const stack = [];
+  const arcs = [];
+  const fills = [];
+  const base = makeCtx();
+  function mul(a, b) {
+    return [a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[1],
+      a[0] * b[2] + a[2] * b[3], a[1] * b[2] + a[3] * b[3],
+      a[0] * b[4] + a[2] * b[5] + a[4], a[1] * b[4] + a[3] * b[5] + a[5]];
+  }
+  function pt(x, y) { return { x: m[0] * x + m[2] * y + m[4], y: m[1] * x + m[3] * y + m[5] }; }
+  return Object.assign(base, {
+    arcs: arcs, fills: fills,
+    save: function () { stack.push(m.slice()); },
+    restore: function () { m = stack.pop() || [1, 0, 0, 1, 0, 0]; },
+    setTransform: function (a, b, c, d, e, f) { m = [a, b, c, d, e, f]; },
+    translate: function (x, y) { m = mul(m, [1, 0, 0, 1, x, y]); },
+    scale: function (x, y) { m = mul(m, [x, 0, 0, y, 0, 0]); },
+    rotate: function (r) { const c = Math.cos(r), s = Math.sin(r); m = mul(m, [c, s, -s, c, 0, 0]); },
+    arc: function (x, y, r) { arcs.push({ p: pt(x, y), r: r, color: this.fillStyle }); },
+    fillRect: function (x, y, w, h) { fills.push({ a: pt(x, y), b: pt(x + w, y + h), color: this.fillStyle }); }
+  });
+}
+(function () {
+  ZC.cfg.dropTime = 0;
+  ZC.startMatch();
+  const P = ZC.__test.player;
+  const gy = ZC.cfg.groundY;
+  const aims = [[1, 0], [-1, 0], [0.8, -0.6], [-0.7, 0.7], [0.6, 0.8], [-0.5, -0.86]];
+  const looks = ZC.Appearance.list().map(function (l) { return l.id; });
+  const actors = [P, ZC.__test.actors.filter(function (a) { return !a.isPlayer; })[0]];
+  let checked = 0, worst = 0, worstMsg = "";
+  looks.forEach(function (look) {
+    ZC.profile.look = look; P.look = look;
+    Object.keys(ZC.WEAPONS).forEach(function (wid) {
+      actors.forEach(function (A) {
+        aims.forEach(function (aim) {
+          A.x = 600; A.y = gy; A.dead = false; A.hurt = 0;
+          A.gun.current = wid; A.gun.cooldown = 0; A.gun.reloading = 0; A.gun[wid].mag = 5;
+          A.aimX = aim[0]; A.aimY = aim[1];
+          const m = ZC.__test.muzzle(A);
+          // Dibuja el actor con fogonazo y busca la boca del arma en el dibujo
+          A.flash = 0.05;
+          const spy = trackingCtx();
+          const real = ZC.ctx; ZC.ctx = spy;
+          spy.translate(A.x, A.y);
+          ZC.Appearance.draw(A);
+          ZC.ctx = real;
+          A.flash = 0;
+          const flash = spy.arcs.filter(function (a) { return a.color === "#fff6c0"; })[0];
+          const d = flash ? Math.hypot(flash.p.x - m.x, flash.p.y - m.y) : 999;
+          checked++;
+          if (d > worst) { worst = d; worstMsg = look + "/" + wid + "/" + (A.isPlayer ? "jugador" : "bot") + "/" + aim.join(","); }
+        });
+      });
+    });
+  });
+  ok(checked === looks.length * Object.keys(ZC.WEAPONS).length * 2 * aims.length && worst < 2.5,
+    "el fogonazo dibujado y el punto de salida de la bala coinciden (todas las armas, aspectos, jugador y bots, 6 direcciones)",
+    "peor " + worst.toFixed(2) + " px en " + worstMsg);
+
+  // Altura: a la altura del pecho/hombro, no de la cintura (cinturón en y-32, cadera y-30)
+  P.x = 600; P.y = gy; P.aimX = 1; P.aimY = 0; P.gun.current = "rifle";
+  const mR = ZC.__test.muzzle(P);
+  ok(gy - mR.y >= 35, "apuntando recto, la bala sale a la altura del pecho (>= 35 px sobre los pies)", String(gy - mR.y));
+  ok(mR.x - P.x >= 38, "y por delante del cuerpo, en la punta del fusil", String(mR.x - P.x));
+  P.aimX = -1;
+  const mL = ZC.__test.muzzle(P);
+  ok(P.x - mL.x >= 38 && Math.abs(mL.y - mR.y) < 0.01, "mirando a la izquierda sale por la izquierda a la misma altura", (P.x - mL.x) + "");
+
+  // El disparo real: bala, estela y fogonazo arrancan en la boca del arma
+  ZC.bullets.length = 0; ZC.particles.length = 0;
+  P.aimX = 1; P.aimY = 0; P.gun.current = "rifle"; P.gun.cooldown = 0; P.gun.reloading = 0; P.gun.rifle.mag = 5;
+  const expect = ZC.__test.muzzle(P);
+  ZC.__test.fire();
+  const b = ZC.bullets[0];
+  ok(b && Math.hypot(b.x - expect.x, b.y - expect.y) < 0.01 && b.px === b.x && b.py === b.y,
+    "la bala (y su estela) nace en la boca del cañón", b ? (b.x + "," + b.y) : "sin bala");
+  ok(b && (P.y - b.y) > 32, "la bala no nace en la cadera", b ? String(P.y - b.y) : "");
+  const nearMuzzle = ZC.particles.filter(function (q) { return Math.hypot(q.x - expect.x, q.y - expect.y) < 6; }).length;
+  ok(nearMuzzle >= 3, "las chispas del fogonazo salen del cañón", String(nearMuzzle));
+  ok(b && Math.abs(Math.atan2(b.vy, b.vx) - 0) <= ZC.WEAPONS.rifle.spread + 1e-6, "y vuela en la dirección del disparo");
+  // Escopeta hacia arriba-izquierda: todos los perdigones salen del mismo cañón
+  ZC.bullets.length = 0;
+  P.gun.current = "shotgun"; P.gun.cooldown = 0; P.gun.shotgun.mag = 3; P.aimX = -0.7; P.aimY = -0.7;
+  const exS = ZC.__test.muzzle(P);
+  ZC.__test.fire();
+  ok(ZC.bullets.length === ZC.WEAPONS.shotgun.pellets && ZC.bullets.every(function (q) { return Math.hypot(q.x - exS.x, q.y - exS.y) < 0.01 && q.vx < 0 && q.vy < 0; }),
+    "escopeta: los perdigones salen del cañón hacia donde apunta", String(ZC.bullets.length));
+  // Bot
+  const bot = actors[1];
+  ZC.bullets.length = 0;
+  bot.x = 900; bot.y = gy; bot.dead = false; bot.aimX = -1; bot.aimY = 0; bot.gun.current = "rifle"; bot.gun.cooldown = 0; bot.gun.reloading = 0; bot.gun.rifle.mag = 5;
+  const exB = ZC.__test.muzzle(bot);
+  ZC.fireWeapon(bot);
+  ok(ZC.bullets.length === 1 && Math.hypot(ZC.bullets[0].x - exB.x, ZC.bullets[0].y - exB.y) < 0.01 && ZC.bullets[0].x < bot.x - 30 && bot.y - ZC.bullets[0].y > 32,
+    "los bots también disparan desde el cañón");
+  // Las balas le dan al cuerpo dibujado (no solo a las piernas) y una caja en medio sigue cubriendo
+  ok(ZC.cfg.hurtH >= 60, "la caja de impacto cubre del pie al casco", String(ZC.cfg.hurtH));
+  ok(gy - mR.y < 40, "un disparo recto desde el suelo pasa por debajo del borde de una caja de 40 px (la cobertura sigue)", String(gy - mR.y));
+  // A quemarropa: rival pegado al cañón recibe el disparo
+  ZC.bullets.length = 0;
+  const foe = actors[1];
+  foe.x = P.x + 22; foe.y = gy; foe.hp = 100; foe.dead = false; foe.ai = null; foe.vx = 0;
+  P.gun.current = "rifle"; P.gun.cooldown = 0; P.gun.reloading = 0; P.gun.rifle.mag = 5; P.aimX = 1; P.aimY = 0;
+  ZC.__test.fire();
+  ZC.updateBullets(1 / 60);
+  ok(foe.hp < 100, "a quemarropa (rival pegado al cañón) la bala sí le da", String(foe.hp));
+})();
+(function () {
+  // Vista previa del lobby: arma en la mano y disparo de muestra desde el cañón
+  const pose = ZC.lobbyPreviewPose(ZC.LOBBY_SHOT_EVERY - 0.3);
+  ok(pose.gun && pose.gun.current === ZC.profile.primary && pose.flash > 0 && pose.vx === 0,
+    "el lobby muestra al personaje quieto, con su arma y un disparo de muestra");
+  const prevT = ZC.lobbyPreviewT;
+  ZC.lobbyPreviewT = ZC.LOBBY_SHOT_EVERY - 0.25;
+  ZC.lobbyLastMuzzle = null;
+  ZC.drawLobbyPreview();
+  ok(ZC.lobbyLastMuzzle && ZC.lobbyLastMuzzle.x > 480 * 0.36 + 100, "la estela de muestra del lobby sale de la boca del arma", JSON.stringify(ZC.lobbyLastMuzzle));
+  ZC.lobbyPreviewT = prevT;
+})();
 // Sin emojis en la interfaz
 const emojiRe = /[\u{1F000}-\u{1FAFF}\u{FE0F}\u{2705}\u{274C}\u{2728}]/u;
 const uiFiles = ["index.html", "css/style.css"].concat(expected);

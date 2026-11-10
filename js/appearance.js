@@ -74,7 +74,13 @@
       var gunId = (actor.gun && actor.gun.current) || "rifle";
       var weapon = (ZC.WEAPONS && ZC.WEAPONS[gunId]) || { color: "#cdbb8a", id: gunId };
 
+      // Geometría compartida con combat.js (ZC.gunRig en weapons.js): el cuerpo se
+      // voltea hacia donde apunta y el arma sale del hombro; la boca coincide con
+      // el punto de donde salen las balas.
+      var rig = ZC.gunRig ? ZC.gunRig(actor, bulk) : { face: 1, localAng: Math.atan2(actor.aimY || 0, actor.aimX || 1), barrel: 36 };
+
       ctx.save();
+      if (rig.face < 0) ctx.scale(-1, 1);
 
       // Mochila, detrás del torso
       ctx.fillStyle = pal.pack;
@@ -88,7 +94,7 @@
       shoulders(ctx, bulk, pal);
       offArm(ctx, bulk, swing, suitDark, pal);
       head(ctx, actor, pal);
-      gunArm(ctx, actor, bulk, suitDark, pal, weapon);
+      gunArm(ctx, actor, bulk, suitDark, pal, weapon, rig);
       ctx.restore();
     }
   };
@@ -200,20 +206,27 @@
     }
   }
 
-  function gunArm(ctx, actor, bulk, suitDark, pal, weapon) {
-    var ang = Math.atan2(actor.aimY || 0, actor.aimX || 1);
+  function gunArm(ctx, actor, bulk, suitDark, pal, weapon, rig) {
+    var ang = rig.localAng;
+    var L = rig.barrel || 36;            // boca del cañón (px desde el hombro)
+    var kick = actor.flash > 0 ? -1.6 : 0; // retroceso leve al disparar
+    var G = ZC.GUN_RIG || { shoulderX: 7, shoulderY: -38, armY: -44, gripX: 12 };
+    var px = G.shoulderX * bulk, py = G.shoulderY;
+    var c = Math.cos(ang), s = Math.sin(ang);
+    // Brazo: del hombro a la mano que sujeta el arma (pivote + empuñadura rotada)
+    var hx = px + c * (G.gripX + kick) - s * 1, hy = py + s * (G.gripX + kick) + c * 1;
+    limb(ctx, px - 1, G.armY, hx, hy, 3.4, suitDark);
     ctx.save();
-    ctx.translate(7 * bulk, -42);
+    ctx.translate(px, py);
     ctx.rotate(ang);
-    limb(ctx, 0, 0, 11, 1, 3.4, suitDark);
-    ctx.fillStyle = pal.skin;
-    ctx.beginPath();
-    ctx.arc(12, 1, 2.3, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.translate(kick, 0);
+    // Cuerpo del arma y cañón hasta L
     ctx.fillStyle = "#2a2822";
     ctx.fillRect(13, -2.4, 16, 5);
     ctx.fillStyle = weapon.color || "#cdbb8a";
-    ctx.fillRect(27, -1.5, 8, 3);
+    ctx.fillRect(27, -1.5, L - 27, 3);
+    ctx.fillStyle = "#1c1a16";
+    ctx.fillRect(L - 1.2, -1.9, 1.2, 3.8);
     if (weapon.id === "shotgun") {
       ctx.fillStyle = "#2a2822";
       ctx.fillRect(15, 2.2, 11, 2.6);
@@ -221,10 +234,24 @@
       ctx.fillStyle = "#45413a";
       ctx.fillRect(18, 2.2, 4, 4);
     }
+    // Mano sobre la empuñadura
+    ctx.fillStyle = pal.skin;
+    ctx.beginPath();
+    ctx.arc(G.gripX, 1, 2.3, 0, Math.PI * 2);
+    ctx.fill();
     if (actor.flash > 0) {
+      // Fogonazo pegado a la boca del cañón, apuntando en la dirección del disparo
+      ctx.translate(-kick, 0);
+      ctx.fillStyle = "rgba(255, 214, 140, 0.9)";
+      ctx.beginPath();
+      ctx.moveTo(L, -3.2);
+      ctx.lineTo(L + 11, 0);
+      ctx.lineTo(L, 3.2);
+      ctx.closePath();
+      ctx.fill();
       ctx.fillStyle = "#fff6c0";
       ctx.beginPath();
-      ctx.arc(37, 0, 6, 0, Math.PI * 2);
+      ctx.arc(L + 1, 0, 3.4, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();

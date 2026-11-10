@@ -223,7 +223,13 @@ ZC.recountAlive = function () {
       ZC.bindInput();
       ZC.bindShell();
       global.addEventListener("resize", ZC.resize);
+      if (ZC.bindBoot) ZC.bindBoot();
       ZC.mounted = true;
+    }
+    // Entrada tipo PUBG Mobile: logo, carga real y lobby (js/boot.js).
+    // opts.boot === false (o sin boot.js) deja el menú de antes.
+    if (opts.boot !== false && ZC.Boot && !global.__ZC_TEST__ && ZC.Boot.phase === "idle") {
+      ZC.Boot.start();
     }
     ZC.lastT = 0;
     if (opts.autoLoop !== false && !global.__ZC_TEST__) {
@@ -290,7 +296,9 @@ ZC.recountAlive = function () {
     pick: function (actor, item) { return ZC.pickLoot(actor, item); },
     skipDrop: function () { if (ZC.Drop) ZC.Drop.skip(); },
     hudLayout: function () { return ZC.hudLayout ? ZC.hudLayout() : null; },
-    startReload: function () { return ZC.player ? ZC.startReload(ZC.player) : false; }
+    startReload: function () { return ZC.player ? ZC.startReload(ZC.player) : false; },
+    skipBoot: function () { if (ZC.Boot) ZC.Boot.skip(); },
+    muzzle: function (actor) { return ZC.muzzlePoint(actor || ZC.player); }
   };
 
   global.ZonaCero = ZC;

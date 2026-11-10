@@ -20,11 +20,14 @@ ZC.fireWeapon = function (actor) {
     }
     clip.mag -= 1;
     actor.gun.cooldown = w.fireDelay;
-    const base = Math.atan2(actor.aimY, actor.aimX);
     const muzzle = ZC.muzzlePoint(actor);
+    const base = muzzle.ang;
     for (let i = 0; i < w.pellets; i++) {
       const ang = base + ZC.util.rand(-w.spread, w.spread);
-      ZC.spawnBullet(actor, muzzle.x, muzzle.y, Math.cos(ang), Math.sin(ang), w);
+      const b = ZC.spawnBullet(actor, muzzle.x, muzzle.y, Math.cos(ang), Math.sin(ang), w);
+      // A quemarropa: el primer tramo para golpear actores empieza en el hombro,
+      // para que un rival pegado al cañón no quede "detrás" de la bala.
+      b.hx = muzzle.sx; b.hy = muzzle.sy;
     }
     ZC.burst(muzzle.x, muzzle.y, w.pellets === 1 ? 4 : 8, w.color, 180);
     actor.flash = 0.06;
@@ -65,11 +68,18 @@ ZC.fireWeapon = function (actor) {
       dmg: w.damage, owner: owner, color: w.color,
       weapon: w.id, r: 3
     });
+    return ZC.bullets[ZC.bullets.length - 1];
   }
 
+  // Boca del arma en coordenadas del mundo. Antes era (x + 28, y - 10): la altura
+  // de la cintura. Ahora usa ZC.gunRig (weapons.js), la misma geometría con la que
+  // appearance.js dibuja el arma, así bala, fogonazo y estela salen del cañón.
   ZC.muzzlePoint = function (actor) {
-    const a = Math.atan2(actor.aimY, actor.aimX);
-    return { x: actor.x + Math.cos(a) * 28, y: actor.y - 10 + Math.sin(a) * 18 };
+    const rig = ZC.gunRig(actor);
+    return {
+      x: actor.x + rig.muzzleX, y: actor.y + rig.muzzleY, ang: rig.ang,
+      sx: actor.x + rig.shoulderX, sy: actor.y + rig.shoulderY
+    };
   }
 
   ZC.applyDamage = function (victim, amount, src, cause) {
@@ -191,8 +201,11 @@ ZC.fireWeapon = function (actor) {
         for (let a = 0; a < ZC.actors.length; a++) {
           const ac = ZC.actors[a];
           if (ac.dead || ac === b.owner) continue;
-          const rx = ac.x - ac.w / 2 - 2, ry = ac.y - ac.h - 2;
-          if (ZC.util.segmentHitsAABB(b.px, b.py, b.x, b.y, rx, ry, ac.w + 4, ac.h + 6)) {
+          // Caja de impacto = cuerpo dibujado (pies al casco), no solo la de colisión
+          const hh = Math.max(ac.h, ZC.CFG.hurtH || ac.h);
+          const rx = ac.x - ac.w / 2 - 2, ry = ac.y - hh - 2;
+          const hx = b.hx != null ? b.hx : b.px, hy = b.hy != null ? b.hy : b.py;
+          if (ZC.util.segmentHitsAABB(hx, hy, b.x, b.y, rx, ry, ac.w + 4, hh + 6)) {
             ZC.applyDamage(ac, b.dmg, b.owner, "shot");
             ZC.burst(b.x, b.y, 8, ac.color, 180);
             hit = true;
@@ -200,6 +213,7 @@ ZC.fireWeapon = function (actor) {
           }
         }
       }
+      b.hx = null; b.hy = null;
       if (hit || b.life <= 0) ZC.bullets.splice(i, 1);
     }
   }

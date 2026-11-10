@@ -278,7 +278,9 @@
     else moveX = (ZC.input.right ? 1 : 0) - (ZC.input.left ? 1 : 0);
     if (!ZC.input.aimStick && ZC.player) {
       const w = { x: ZC.input.mx, y: ZC.input.my };
-      const dx = w.x - ZC.player.x, dy = w.y - (ZC.player.y - 16);
+      // Apunta desde el pivote del arma (ZC.gunRig): la bala pasa por el cursor
+      const rig = ZC.gunRig ? ZC.gunRig(ZC.player) : { shoulderX: 0, shoulderY: -16 };
+      const dx = w.x - (ZC.player.x + rig.shoulderX), dy = w.y - (ZC.player.y + rig.shoulderY);
       const n = ZC.util.norm(dx, dy);
       if (n.l > 4) { ZC.player.aimX = n.x; ZC.player.aimY = n.y; }
     } else if (ZC.player && ZC.input.aimStick) {

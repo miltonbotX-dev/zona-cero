@@ -85,28 +85,53 @@ with sync_playwright() as p:
     page = ctx.new_page()
     logs = collect_console(page)
     page.goto(URL, wait_until="networkidle")
-    page.wait_for_timeout(400)
-    ok(page.locator("h1").first.inner_text().strip().upper().startswith("ZONA CERO"), "título visible")
-    ok(page.locator("#btn-play").is_visible(), "botón Jugar visible")
-    page.screenshot(path=str(SHOTS / "desktop-title.png"))
+    page.wait_for_timeout(300)
+    # --- Entrada v1.5: logo -> carga -> lobby ---
+    boot0 = page.evaluate("() => ({ phase: ZC.Boot.phase, visible: !document.getElementById('boot-screen').hidden, title: !document.getElementById('title-screen').hidden, lobby: !!ZC.lobbyOpen })")
+    ok(boot0["phase"] in ("splash", "loading") and boot0["visible"] and not boot0["title"] and not boot0["lobby"],
+       "al abrir se ve la presentación de Zona Cero (no el menú ni el lobby)", json.dumps(boot0))
+    ok(page.locator("#boot-logo").is_visible() and page.evaluate("() => document.getElementById('boot-logo').naturalWidth > 0"), "el logo carga y se ve")
+    page.screenshot(path=str(SHOTS / "desktop-boot-splash.png"))
     style = page.evaluate("""() => {
       const cs = el => getComputedStyle(el);
-      const cta = cs(document.getElementById('btn-play'));
-      const h1 = cs(document.querySelector('h1'));
-      return { ctaBg: cta.backgroundImage + ' ' + cta.backgroundColor, ctaShadow: cta.boxShadow,
-               h1Shadow: h1.textShadow, bodyBg: cs(document.body).backgroundColor };
+      return { boot: cs(document.getElementById('boot-screen')).backgroundImage + ' ' + cs(document.getElementById('boot-screen')).backgroundColor,
+               fill: cs(document.getElementById('boot-fill')).backgroundImage,
+               word: cs(document.querySelector('.boot-word')).textShadow,
+               bodyBg: cs(document.body).backgroundColor };
     }""")
     neon = ("92, 228, 255", "106, 239, 255", "43, 183, 214")
-    ok(not any(n in json.dumps(style) for n in neon), "botón y título sin cian neón", json.dumps(style))
+    ok(not any(n in json.dumps(style) for n in neon), "entrada sin cian neón", json.dumps(style))
     ok(style["bodyBg"] == "rgb(23, 19, 14)", "fondo de página tierra oscuro", style["bodyBg"])
-    page.wait_for_function("() => window.ZC && ZC.Maps.list().every(id => ZC.Maps.imageFor(ZC.Maps.all[id]))", timeout=8000)
+    page.wait_for_function("() => ZC.Boot.phase !== 'splash'", timeout=4000)
+    samples = []
+    for _ in range(30):
+        smp = page.evaluate("() => ({ phase: ZC.Boot.phase, shown: ZC.Boot.shown, real: ZC.Boot.progress(), pct: document.getElementById('boot-pct').textContent })")
+        samples.append(smp)
+        if smp["phase"] in ("ready", "done"):
+            break
+        page.wait_for_timeout(60)
+    ok(any(x["phase"] == "loading" for x in samples), "después aparece la pantalla de carga", json.dumps(samples[:3]))
+    ok(all(x["shown"] <= x["real"] + 1e-9 for x in samples), "la barra nunca va por delante de lo realmente cargado", json.dumps(samples[:6]))
+    ok(page.locator("#boot-pct").is_visible(), "porcentaje de carga visible")
+    page.wait_for_function("() => ZC.lobbyOpen", timeout=12000)
+    page.wait_for_timeout(300)
     loaded = page.evaluate("() => ZC.Maps.list().map(id => [id, !!ZC.Maps.imageFor(ZC.Maps.all[id])])")
-    ok(all(v for _, v in loaded), "las imágenes de fondo de todos los mapas cargan", json.dumps(loaded))
+    ok(all(v for _, v in loaded), "al llegar al lobby los fondos de todos los mapas ya cargaron", json.dumps(loaded))
+    st = js_state(page)
+    ok(st.get("lobbyOpen") and not st.get("lobbyHidden") and st.get("titleHidden"), "la carga termina sola en el lobby", json.dumps(st))
+    ok(page.evaluate("() => document.getElementById('boot-screen').hidden && !document.getElementById('app').classList.contains('booting')"), "la pantalla de carga se oculta")
+    ok(page.locator("#btn-deploy").is_visible(), "botón Iniciar visible")
+    fav = page.evaluate("() => [...document.querySelectorAll('link[rel~=icon]')].map(l => l.getAttribute('href'))")
+    ok(any("logo.svg" in f for f in fav), "favicon propio (logo)", json.dumps(fav))
+    # El menú de antes (controles) sigue disponible desde la flecha del lobby
+    page.click("#btn-lobby-back")
+    page.wait_for_timeout(200)
+    ok(page.locator("h1").first.inner_text().strip().upper().startswith("ZONA CERO") and page.locator("#btn-play").is_visible(), "la flecha del lobby lleva al menú con los controles")
+    page.screenshot(path=str(SHOTS / "desktop-title.png"))
     page.click("#btn-play")
     page.wait_for_timeout(500)
     st = js_state(page)
-    ok(st.get("lobbyOpen") and not st.get("lobbyHidden"), "Jugar abre el lobby", json.dumps(st))
-    ok(page.locator("#btn-deploy").is_visible(), "botón Iniciar visible")
+    ok(st.get("lobbyOpen") and not st.get("lobbyHidden"), "Jugar vuelve a abrir el lobby", json.dumps(st))
     # preview canvas should have some pixels drawn
     preview_drawn = page.evaluate("""() => {
       const c = document.getElementById('lobby-preview');
@@ -117,6 +142,8 @@ with sync_playwright() as p:
       return false;
     }""")
     ok(preview_drawn, "la vista previa del personaje está dibujada")
+    gear = page.evaluate("() => document.getElementById('lobby-gear-name').textContent")
+    ok(gear.strip() != "", "el arma en mano se nombra junto al personaje", gear)
     page.screenshot(path=str(SHOTS / "desktop-lobby.png"))
     page.click("#btn-deploy")
     page.wait_for_timeout(400)
@@ -146,6 +173,8 @@ with sync_playwright() as p:
     ok(st["y"] is not None and st["y"] < y0 - 5, "el salto eleva al jugador", f"{y0} -> {st['y']}")
     # shoot: aim right and click
     page.mouse.move(1100, 360)
+    page.wait_for_timeout(60)
+    page.evaluate("() => { ZC.bullets.length = 0; ZC.player.gun.cooldown = 0; }")
     mag0 = js_state(page)["mag"]
     page.mouse.down()
     page.wait_for_timeout(120)
@@ -154,6 +183,14 @@ with sync_playwright() as p:
     ok(st["bullets"] >= 1 or (mag0 is not None and st["mag"] is not None and st["mag"] < mag0),
        "el disparo funciona", f"bullets={st['bullets']} mag {mag0}->{st['mag']}")
     page.screenshot(path=str(SHOTS / "desktop-gameplay.png"))
+    origin = page.evaluate("""() => {
+      const P = ZC.player; ZC.bullets.length = 0; P.gun.cooldown = 0; P.gun.reloading = 0;
+      P.gun[P.gun.current].mag = Math.max(1, P.gun[P.gun.current].mag);
+      const m = ZC.muzzlePoint(P); ZC.fireWeapon(P); const b = ZC.bullets[0];
+      return { bx: b.x, by: b.y, mx: m.x, my: m.y, px: P.x, py: P.y };
+    }""")
+    ok(abs(origin["bx"] - origin["mx"]) < 0.5 and abs(origin["by"] - origin["my"]) < 0.5 and origin["py"] - origin["by"] > 32,
+       "en el navegador la bala sale del cañón, no de la cintura", json.dumps(origin))
     sky = page.evaluate("""() => {
       const c = document.getElementById('game'); const x = c.getContext('2d');
       const d = x.getImageData(Math.floor(c.width * 0.5), Math.floor(c.height * 0.25), 1, 1).data;
@@ -175,9 +212,14 @@ with sync_playwright() as p:
     page = ctx.new_page()
     logs = collect_console(page)
     page.goto(URL, wait_until="networkidle")
-    page.wait_for_timeout(400)
+    page.wait_for_timeout(200)
     st = js_state(page)
-    ok(st.get("portraitDisplay") == "flex", "aviso de girar a horizontal en retrato", st.get("portraitDisplay"))
+    ok(st.get("portraitDisplay") == "none", "en retrato el aviso de girar no tapa la presentación", st.get("portraitDisplay"))
+    page.screenshot(path=str(SHOTS / "phone-390x844-boot.png"), full_page=False)
+    page.wait_for_function("() => ZC.lobbyOpen", timeout=12000)
+    page.wait_for_timeout(200)
+    st = js_state(page)
+    ok(st.get("portraitDisplay") == "flex", "aviso de girar a horizontal en retrato (después de la carga)", st.get("portraitDisplay"))
     # force-enable touch UI to measure controls even under the warning
     page.evaluate("() => { if (window.ZC && ZC.enableTouch) ZC.enableTouch(); }")
     page.wait_for_timeout(100)
@@ -206,14 +248,43 @@ with sync_playwright() as p:
     page = ctx.new_page()
     logs = collect_console(page)
     page.goto(URL, wait_until="networkidle")
-    page.wait_for_timeout(400)
-    st = js_state(page)
-    ok(st.get("portraitDisplay") == "none", "sin aviso de rotación en horizontal", st.get("portraitDisplay"))
-    page.locator("#btn-play").tap()
     page.wait_for_timeout(500)
     st = js_state(page)
-    ok(st.get("lobbyOpen") and not st.get("lobbyHidden"), "lobby abre en el celular")
+    ok(st.get("portraitDisplay") == "none", "sin aviso de rotación en horizontal", st.get("portraitDisplay"))
+    page.screenshot(path=str(SHOTS / "phone-844x390-boot-splash.png"))
+    brand = page.evaluate("""() => { const r = document.querySelector('.boot-brand').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; }""")
+    ok(brand["y"] >= 0 and brand["y"] + brand["h"] <= 390 and brand["x"] >= 0 and brand["x"] + brand["w"] <= 844, "el logo cabe en 844x390", json.dumps(brand))
+    # Un toque acorta la presentación
+    page.locator("#boot-screen").tap()
+    page.wait_for_timeout(250)
+    ph = page.evaluate("() => ZC.Boot.phase")
+    ok(ph in ("loading", "ready", "done"), "un toque en la presentación pasa a la carga", ph)
+    if ph == "loading":
+        page.wait_for_timeout(250)
+    page.evaluate("() => { if (ZC.Boot.phase === 'ready' || ZC.Boot.phase === 'loading') ZC.Boot.paint(); }")
+    page.screenshot(path=str(SHOTS / "phone-844x390-boot-loading.png"))
+    bar = page.evaluate("""() => { const a = document.querySelector('.boot-load').getBoundingClientRect(); const b = document.querySelector('.boot-brand').getBoundingClientRect(); return { loadTop: a.y, loadBottom: a.y + a.height, brandBottom: b.y + b.height }; }""")
+    ok(bar["loadBottom"] <= 390 and bar["loadTop"] >= bar["brandBottom"] - 4, "barra de carga bajo el logo y dentro de la pantalla", json.dumps(bar))
+    page.wait_for_function("() => ZC.Boot.phase === 'ready' || ZC.Boot.phase === 'done'", timeout=12000)
+    if page.evaluate("() => ZC.Boot.phase") == "ready":
+        ok(page.locator("#boot-tap").is_visible(), "aparece «Toca para entrar»")
+        page.screenshot(path=str(SHOTS / "phone-844x390-boot-ready.png"))
+        page.locator("#boot-screen").tap()
+    page.wait_for_function("() => ZC.lobbyOpen", timeout=4000)
+    st = js_state(page)
+    ok(st.get("lobbyOpen") and not st.get("lobbyHidden"), "tras la carga entra al lobby en el celular")
+    # Esperar a que el personaje del lobby haga su disparo de muestra para la captura
+    page.wait_for_function("() => (ZC.lobbyPreviewT % ZC.LOBBY_SHOT_EVERY) > ZC.LOBBY_SHOT_EVERY - 0.3 && (ZC.lobbyPreviewT % ZC.LOBBY_SHOT_EVERY) < ZC.LOBBY_SHOT_EVERY - 0.2", timeout=6000, polling=16)
     page.screenshot(path=str(SHOTS / "phone-844x390-lobby.png"))
+    lob = page.evaluate("""() => {
+      const r = id => { const e = document.getElementById(id) || document.querySelector(id); const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; };
+      return { gear: r('lobby-gear-name').w > 0 ? r('.lobby-gear') : null, deploy: r('btn-deploy'), map: r('lobby-map-card'), dock: r('.lobby-dock'), stage: r('.lobby-stage') };
+    }""")
+    def inter(a, b):
+        return a["x"] < b["x"] + b["w"] and a["x"] + a["w"] > b["x"] and a["y"] < b["y"] + b["h"] and a["y"] + a["h"] > b["y"]
+    ok(lob["gear"] and not inter(lob["gear"], lob["deploy"]) and not inter(lob["gear"], lob["map"]) and not inter(lob["gear"], lob["dock"]),
+       "en 844x390 la ficha del arma no pisa Iniciar, el mapa ni los botones", json.dumps(lob))
+    ok(not inter(lob["dock"], lob["deploy"]) and not inter(lob["dock"], lob["map"]), "botones del lobby sin solaparse", json.dumps(lob))
     page.locator("#btn-deploy").tap()
     page.wait_for_timeout(400)
     st = js_state(page)
@@ -319,6 +390,37 @@ with sync_playwright() as p:
     page.evaluate("() => { ZC.player.maxHp = 100; ZC.player.hp = Math.min(100, ZC.player.hp); }")
     page.wait_for_timeout(100)
     page.screenshot(path=str(SHOTS / "phone-844x390-gameplay.png"))
+    # Captura fija del disparo: se detiene el bucle, el jugador dispara y se avanza
+    # un poco el tiempo para ver la estela saliendo de la boca del fusil.
+    shot = page.evaluate("""() => {
+      cancelAnimationFrame(ZC.rafId);
+      const P = ZC.player;
+      P.dead = false; P.hp = P.maxHp; P.gun.current = 'rifle'; P.gun.cooldown = 0; P.gun.reloading = 0; P.gun.rifle.mag = 20;
+      P.aimX = 0.97; P.aimY = -0.24; P.vx = 0;
+      ZC.bullets.length = 0; ZC.particles.length = 0;
+      const n = ZC.util.norm(P.aimX, P.aimY); P.aimX = n.x; P.aimY = n.y;
+      const m = ZC.muzzlePoint(P);
+      ZC.fireWeapon(P);
+      const b0 = ZC.bullets[0];
+      const out = { mx: m.x, my: m.y, bx: b0.x, by: b0.y, px: P.x, py: P.y };
+      // ráfaga corta: avanzar solo las balas (los demás quietos) para ver la fila saliendo del cañón
+      for (let k = 0; k < 2; k++) {
+        ZC.updateBullets(0.045); ZC.updateParticles(0.045);
+        P.gun.cooldown = 0; ZC.fireWeapon(P);
+      }
+      P.flash = 0.06; P.hurt = 0;
+      ZC.updateBullets(0.016); ZC.updateParticles(0.016);
+      ZC.updateCamera && ZC.updateCamera(0);
+      ZC.draw();
+      const b = ZC.bullets[0];
+      out.trailFromX = b ? b.px : null; out.trailFromY = b ? b.py : null;
+      out.screenMx = m.x - ZC.cam.x; out.screenMy = m.y - ZC.cam.y;
+      return out;
+    }""")
+    page.screenshot(path=str(SHOTS / "phone-844x390-gameplay-muzzle.png"))
+    ok(abs(shot["bx"] - shot["mx"]) < 0.5 and abs(shot["by"] - shot["my"]) < 0.5 and shot["py"] - shot["by"] > 32,
+       "en el celular la bala nace en la boca del fusil (no en la cintura)", json.dumps(shot))
+    page.evaluate("() => { ZC.lastT = 0; ZC.rafId = requestAnimationFrame(ZC.loop); }")
     # --- Los 3 mapas en horizontal ---
     for map_id in page.evaluate("() => ZC.Maps.list()"):
         page.evaluate("""(id) => {

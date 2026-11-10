@@ -136,7 +136,9 @@ ZC.hasLineOfSight = function (ax, ay, bx, by) {
   }
 
   ZC.aimAt = function (a, x, y, inaccuracy) {
-    let dx = x - a.x, dy = y - (a.y - 16);
+    // Desde el pivote del arma, que es de donde sale la bala (ZC.gunRig)
+    const sy = ZC.GUN_RIG ? ZC.GUN_RIG.shoulderY : -16;
+    let dx = x - a.x, dy = y - (a.y + sy);
     const n = ZC.util.norm(dx, dy);
     const jitter = inaccuracy || 0;
     a.aimX = n.x + ZC.util.rand(-jitter, jitter);

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>Zona Cero</title>
+  <rect width="128" height="128" rx="24" fill="#1d1811"/>
+  <rect x="3" y="3" width="122" height="122" rx="21" fill="none" stroke="#3a3122" stroke-width="2"/>
+  <!-- Anillo de la zona que se cierra -->
+  <circle cx="64" cy="64" r="49" fill="none" stroke="#d9a24a" stroke-width="5" stroke-dasharray="22 5.66"/>
+  <!-- Marcas de mira -->
+  <g stroke="#c9b98a" stroke-width="4" stroke-linecap="square">
+    <line x1="64" y1="5" x2="64" y2="13"/>
+    <line x1="64" y1="115" x2="64" y2="123"/>
+    <line x1="5" y1="64" x2="13" y2="64"/>
+    <line x1="115" y1="64" x2="123" y2="64"/>
+  </g>
+  <!-- Disco oliva -->
+  <circle cx="64" cy="64" r="40" fill="#5f6b48"/>
+  <circle cx="64" cy="64" r="40" fill="none" stroke="#2a2c20" stroke-width="3"/>
+  <!-- Z de plantilla (stencil) -->
+  <path d="M41 41 H87 V51 L57 78 H87 V88 H41 V78 L71 51 H41 Z" fill="#efe6d2"/>
+  <rect x="61" y="40" width="4" height="12" fill="#5f6b48"/>
+  <rect x="63" y="77" width="4" height="12" fill="#5f6b48"/>
+</svg>

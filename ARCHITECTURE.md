@@ -27,7 +27,7 @@ No reemplaces los arrays (`ZC.actors = []`): vacíalos con `.length = 0` (así l
 ## Contratos por módulo
 
 - **config:** solo datos numéricos.
-- **weapons:** fichas y `registerWeapon` / `copyLoadout`. El disparo vive en combat.
+- **weapons:** fichas y `registerWeapon` / `copyLoadout`, más la geometría del arma en la mano (`ZC.GUN_RIG`, `ZC.gunRig(actor)`, `ZC.barrelOf`). El disparo vive en combat.
 - **maps:** `ZC.Maps.register(id, def)` y `ZC.Maps.use(id)`. Un mapa trae `platforms`, `crates`, `spawns`, `silos`, `lootSpots`, `backgroundImage`, `bgFallback` y, si se quiere, `blurb`. Mapas actuales: `arena-industrial`, `muelle`, `azoteas`. `ZC.Maps.preload()` y `ZC.Maps.imageFor(def)` manejan las imágenes de fondo.
 - **entities:** fábricas (`makeActor`, `spawnLoot`, partículas).
 - **physics:** `collideWorld`, `tryJump`, `controlActor` (esta última dispara/recarga llamando a combat).
@@ -40,8 +40,9 @@ No reemplaces los arrays (`ZC.actors = []`): vacíalos con `.length = 0` (así l
 - **audio:** `sfx`, `toggleMute`, `unlockAudio`.
 - **appearance:** forma del personaje (`ZC.Appearance.draw`, `register`, `get`, `list`). No decide daño ni input.
 - **render:** cámara (`camFeetRatio`, `camMaxY`), escenario, proyectiles, zona y HUD (`hudLayout`). Llama a `ZC.Appearance.draw` para el cuerpo y a `drawDropWorld` / `drawDropHUD` durante la caída.
-- **ui:** overlays DOM (`hidden` + clase `active`). `ZC.UI.screens` incluye `title`, `lobby` y `result`. También `setInMatch` (clase `#app.in-match`) y la pantalla completa (`requestFullscreen`, `toggleFullscreen`).
-- **lobby:** perfil, sala, paneles (mochila, aspecto, mapa, ajustes) y `startFromLobby`.
+- **ui:** overlays DOM (`hidden` + clase `active`). `ZC.UI.screens` incluye `boot`, `title`, `lobby` y `result`. También `setInMatch` (clase `#app.in-match`) y la pantalla completa (`requestFullscreen`, `toggleFullscreen`).
+- **lobby:** perfil, sala, paneles (mochila, aspecto, mapa, ajustes) y `startFromLobby`. La vista previa (`drawLobbyPreview`, `lobbyPreviewPose`) muestra al personaje quieto con su arma y un disparo de muestra cada `ZC.LOBBY_SHOT_EVERY` segundos.
+- **boot:** entrada al abrir la página (`ZC.Boot`): presentación con logo, carga real y paso al lobby. Ver «Entrada» más abajo.
 - **game:** `startMatch`, `endMatch`, `update`, `loop`, `mount`, API pública y `ZC.__test`.
 
 ## Puntos de extensión
@@ -77,9 +78,35 @@ No reemplaces los arrays (`ZC.actors = []`): vacíalos con `.length = 0` (así l
 - Al terminar, `ZC.Drop.state.go` (0.9 s) muestra «A COMBATIR». En ese rato el jugador ya juega y los bots esperan quietos.
 - `ZC.state` sigue siendo `"playing"` durante la caída (las pruebas y el resto del código no cambian). `getState().drop` informa `on`, `count`, `t` y `dur`. `ZC.__test.skipDrop()` la salta. Con `ZC.CFG.dropTime = 0` no hay caída.
 
+## Entrada: logo, carga y lobby (v1.5)
+
+- Al abrir la página se ve `#boot-screen` (en `index.html`, antes del menú). `game.js` → `mount()` llama `ZC.Boot.start()`.
+- Fases (`ZC.Boot.phase`, también en `data-phase` del overlay para el CSS):
+  1. `splash`: logo (`assets/logo.svg`), «Zona Cero» y una línea. Dura `timing.splash` (1.4 s); un toque o Enter la acorta.
+  2. `loading`: barra y porcentaje. Espera de verdad el logo y la imagen de fondo de cada mapa (`ZC.Maps.images`). `progress()` = terminados / total; una imagen que falla cuenta como terminada porque el mapa tiene su degradado `bgFallback`. La barra (`shown`) sube suave pero **nunca** pasa de `progress()`. Dura al menos `timing.minLoad` (0.9 s).
+  3. `ready`: 100 % y «Toca para entrar». Pasa sola tras `timing.readyHold` (0.8 s).
+  4. `done`: oculta la carga y llama `ZC.openLobby()`.
+- Si algo no carga en `timing.maxWait` (9 s), no se cuelga: pasa a `ready` con el porcentaje real y el estado «Algunos fondos siguen cargando».
+- Mientras dura, `#app.booting` oculta el aviso de girar el celular; en retrato aparece al terminar, sobre el lobby.
+- `ZC.Boot.step(dt)` es lógica pura (las pruebas la avanzan sin navegador). `ZC.Boot.skip()` / `ZC.__test.skipBoot()` entran directo al lobby. `mount({ boot: false })` deja el menú de antes.
+- El menú de siempre (`#title-screen`, con los controles) ya no es lo primero; se llega con la flecha del lobby y su botón Jugar vuelve al lobby.
+- Logo: `assets/logo.svg` (insignia del lobby, presentación y favicon) y `assets/logo-192.png` (ícono para Android/iPhone).
+
+## Arma en la mano y origen de las balas (v1.5)
+
+- Antes la bala salía de `(x + 28, y - 10)`: la cintura del dibujo, mientras el arma se dibujaba más arriba. Ahora hay una sola geometría para las dos cosas, en `js/weapons.js`:
+  - `ZC.GUN_RIG`: pivote del arma a la altura del pecho (`shoulderX: 7` × ancho del aspecto, `shoulderY: -38`), hombro del brazo (`armY: -44`) y empuñadura (`gripX`).
+  - Cada arma tiene `barrel` (largo hasta la boca: fusil 38, escopeta 35).
+  - `ZC.gunRig(actor)` devuelve hacia dónde mira (`face`), el ángulo del disparo y la boca (`muzzleX`, `muzzleY`) relativos a los pies.
+- `appearance.js` voltea el cuerpo hacia donde apunta (`ctx.scale(-1, 1)`) y dibuja el arma con esos números; el fogonazo va en la boca. `combat.js` → `ZC.muzzlePoint(actor)` usa el mismo `gunRig`, así bala, estela y chispas nacen en el cañón, para el jugador y los bots, con cualquier arma o aspecto.
+- La puntería del ratón y la de los bots se mide desde el pivote del arma, para que la bala pase por donde apuntas.
+- Las balas golpean el cuerpo dibujado: `ZC.CFG.hurtH` (62 px, de los pies al casco). La caja de colisión con el mundo sigue siendo `actorH` (38 px), así que moverse y saltar no cambia.
+- El pivote a 38 px queda por debajo del borde de una caja (40 px): un disparo recto sigue chocando con la caja que tengas delante (la cobertura funciona igual que antes).
+- A quemarropa, el primer tramo de la bala para dar a un actor empieza en el pivote (`b.hx`, `b.hy`), para que un rival pegado al cañón no quede «detrás» de la bala.
+
 ## Dependencias de carga
 
-`zc` → `config` → `weapons` / `maps` → `entities` → `physics` / `combat` / `zone` → `bots` / `player` → `drop` → `input` / `audio` → `appearance` → `render` / `ui` → `lobby` → `game`.
+`zc` → `config` → `weapons` / `maps` → `entities` → `physics` / `combat` / `zone` → `bots` / `player` → `drop` → `input` / `audio` → `appearance` → `render` / `ui` → `lobby` → `boot` → `game`.
 
 Las llamadas entre módulos (por ejemplo physics → `ZC.fireWeapon`) ocurren en runtime, cuando todos los scripts ya cargaron. Por eso `game.js` va al final.
 

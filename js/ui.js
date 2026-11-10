@@ -81,6 +81,7 @@ ZC.hideOverlay = function (id) {
   // Añadir una pantalla = crear el overlay HTML + registrarlo aquí + llamar ZC.UI.show("id").
   ZC.UI = {
     screens: {
+      boot: "boot-screen",
       title: "title-screen",
       lobby: "lobby-screen",
       result: "end-screen"

@@ -155,6 +155,22 @@
     if (mapBlurb) mapBlurb.textContent = map && map.blurb ? map.blurb : "Toca para cambiar de mapa";
     var hand = ZC.WEAPONS && ZC.WEAPONS[p.primary];
     var look = ZC.Appearance && ZC.Appearance.get(p.look);
+    var gearName = document.getElementById("lobby-gear-name");
+    var gearMeta = document.getElementById("lobby-gear-meta");
+    if (gearName) {
+      gearName.textContent = hand ? hand.name : "Arma";
+      gearName.style.color = hand && hand.color ? hand.color : "";
+    }
+    if (gearMeta && hand) {
+      var other = p.carried.filter(function (id) { return id !== p.primary; }).map(function (id) {
+        return ZC.WEAPONS[id] ? ZC.WEAPONS[id].name : id;
+      });
+      gearMeta.textContent = hand.mag + " / " + hand.reserve + (other.length ? "  ·  + " + other.join(", ") : "");
+    }
+    var card = document.getElementById("lobby-map-card");
+    if (card && map && map.backgroundImage) {
+      card.style.backgroundImage = "linear-gradient(90deg, rgba(28, 23, 16, 0.94) 40%, rgba(28, 23, 16, 0.55)), url(" + map.backgroundImage + ")";
+    }
     var sub = document.getElementById("lobby-sub");
     if (sub) {
       sub.textContent = (look ? look.name : "Operativo") + " · " +
@@ -283,6 +299,32 @@
     ZC.drawLobbyPreview();
   };
 
+  // Vista del personaje en el lobby: de pie, con el arma equipada en la mano
+  // (no caminando en el sitio). Cada pocos segundos hace un disparo de muestra:
+  // el fogonazo y la estela salen de la boca del arma (ZC.gunRig), igual que en partida.
+  ZC.LOBBY_SHOT_EVERY = 2.6;
+  ZC.lobbyPreviewPose = function (t) {
+    var p = ZC.profile || defaults();
+    var cycle = t % ZC.LOBBY_SHOT_EVERY;
+    var shooting = cycle > ZC.LOBBY_SHOT_EVERY - 0.32;
+    var sway = Math.sin(t * 1.3) * 0.035;
+    return {
+      isPlayer: true,
+      look: p.look,
+      color: "#c9b98a",
+      grounded: true,
+      vx: 0,
+      walkPhase: 0,
+      facing: 1,
+      aimX: 1,
+      aimY: shooting ? -0.06 : -0.1 + sway,
+      hurt: 0,
+      flash: shooting && cycle < ZC.LOBBY_SHOT_EVERY - 0.22 ? 0.06 : 0,
+      shotAge: shooting ? cycle - (ZC.LOBBY_SHOT_EVERY - 0.32) : -1,
+      gun: { current: p.primary || "rifle" }
+    };
+  };
+
   ZC.drawLobbyPreview = function () {
     var canvas = document.getElementById("lobby-preview");
     if (!canvas || !canvas.getContext || !ZC.Appearance) return;
@@ -294,24 +336,38 @@
     ZC.ctx = ctx;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, w, h);
-    var p = ZC.profile || defaults();
     var t = ZC.lobbyPreviewT || 0;
+    var pose = ZC.lobbyPreviewPose(t);
+    var S = 3.9;
+    var breathe = Math.sin(t * 2.1) * 0.6;
+    var footX = w * 0.36, footY = h - 46;
     ctx.save();
-    ctx.translate(w * 0.5, h - 52);
-    ctx.scale(3.1, 3.1);
-    ZC.Appearance.draw({
-      isPlayer: true,
-      look: p.look,
-      color: "#c9b98a",
-      grounded: true,
-      vx: 40,
-      walkPhase: t * 8,
-      aimX: 1,
-      aimY: -0.12,
-      hurt: 0,
-      flash: 0,
-      gun: { current: p.primary || "rifle" }
-    });
+    ctx.translate(footX, footY);
+    ctx.scale(S, S);
+    // Sombra en el suelo
+    ctx.fillStyle = "rgba(0, 0, 0, 0.38)";
+    ctx.beginPath();
+    ctx.ellipse(4, -1, 20, 3.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.translate(0, breathe * 0.4);
+    ZC.Appearance.draw(pose);
+    // Estela del disparo de muestra, desde la boca del arma
+    if (pose.shotAge >= 0 && ZC.gunRig) {
+      var bulk = (ZC.Appearance.get(pose.look) || {}).bulk || 1;
+      var rig = ZC.gunRig(pose, bulk);
+      var wpn = ZC.WEAPONS[pose.gun.current] || { color: "#cdbb8a" };
+      var d0 = 4 + pose.shotAge * 260, d1 = d0 + 26;
+      var cx = Math.cos(rig.ang), cy = Math.sin(rig.ang);
+      ctx.strokeStyle = wpn.color;
+      ctx.globalAlpha = Math.max(0, 1 - pose.shotAge * 3);
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(rig.muzzleX + cx * d0, rig.muzzleY + cy * d0);
+      ctx.lineTo(rig.muzzleX + cx * d1, rig.muzzleY + cy * d1);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ZC.lobbyLastMuzzle = { x: footX + rig.muzzleX * S, y: footY + (rig.muzzleY + breathe * 0.4) * S };
+    }
     ctx.restore();
     ZC.ctx = prev;
   };

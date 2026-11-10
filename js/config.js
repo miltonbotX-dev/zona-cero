@@ -22,7 +22,8 @@ ZC.CFG = {
     coyote: 0.09,
     jumpBuffer: 0.12,
     actorW: 20,
-    actorH: 38,
+    actorH: 38,         // caja de colisión con el mundo (piernas y torso bajo)
+    hurtH: 62,          // alto que reciben las balas: de los pies al casco, como se dibuja
     botCount: 7,
     startDelay: 1.15,
     dropTime: 3,        // segundos de caída con cuenta regresiva (0 = sin despliegue)

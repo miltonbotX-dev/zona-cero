@@ -136,6 +136,9 @@ with sync_playwright() as p:
     page.keyboard.up("KeyD")
     st = js_state(page)
     ok(st["x"] is not None and st["x"] > x0 + 10, "el jugador se mueve a la derecha", f"{x0} -> {st['x']}")
+    # medir justo antes de saltar: al caminar pudo bajar de una pasarela
+    page.wait_for_function("() => ZC.player && ZC.player.grounded", timeout=3000)
+    y0 = js_state(page)["y"]
     page.keyboard.down("Space")
     page.wait_for_timeout(120)
     page.keyboard.up("Space")
@@ -220,6 +223,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(500)
     d1 = page.evaluate("() => Object.assign({}, ZC.getState().drop, { y: ZC.player.y, landed: !!ZC.player.landed, bullets: ZC.bullets.length })")
     ok(d1.get("on") and d1.get("count") in (2, 3), "cuenta regresiva visible en el celular", json.dumps(d1))
+    ok(not d1.get("landed"), "a mitad de la cuenta el jugador sigue en el aire", json.dumps(d1))
     page.screenshot(path=str(SHOTS / "phone-844x390-drop.png"))
     # el joystick derecho no dispara en el aire
     box = page.locator("#joy-right").bounding_box()

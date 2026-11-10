@@ -14,7 +14,7 @@ Primer paso hacia un PUBG Mobile en 2D. Lobby, aspectos, mapas con imagen, ajust
 - Sonidos nuevos: tic de la cuenta y golpe de aterrizaje.
 - `ZC.CFG.dropTime` (3 s) controla la caída; con 0 se vuelve al arranque de antes.
 - `index.html` pide CSS y JS con `?v=1.4.0` para que el celular no se quede con la versión anterior en caché.
-- Pruebas: 276 de humo (`node tests/smoke.js`, 85 nuevas sobre HUD, cámara y caída) y 44 en navegador (`tests/browser.py`, 14 nuevas: HUD sin solaparse en 844x390, caída, aterrizaje y los 3 mapas).
+- Pruebas: 277 de humo (`node tests/smoke.js`, 86 nuevas sobre HUD, cámara y caída) y 45 en navegador (`tests/browser.py`, 15 nuevas: HUD sin solaparse en 844x390, caída, aterrizaje y los 3 mapas).
 
 ## 1.3.0 — estilo tierra/militar y mapas con imagen (10 nov 2026, America/Lima)
 

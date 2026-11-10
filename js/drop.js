@@ -32,10 +32,11 @@
       if (!s.on) return;
       for (var i = 0; i < ZC.actors.length; i++) {
         var a = ZC.actors[i];
-        // Destino: la primera superficie bajo el punto de aparición (pasarela, caja o suelo),
-        // así todos tocan tierra justo en el 0.
-        var targetY = ZC.Drop.surfaceBelow(a.x, a.y - 2);
-        var startY = Math.max(150, Math.min(targetY - 200, TOP_Y + (a.isPlayer ? 0 : ZC.util.rand(-120, 60))));
+        // Sale desde arriba de su punto de aparición y cae hasta la primera superficie
+        // bajo la salida (pasarela, caja o suelo): así nadie aterriza antes de tiempo
+        // y todos tocan tierra justo en el 0.
+        var startY = Math.max(150, Math.min(a.y - 200, TOP_Y + (a.isPlayer ? 0 : ZC.util.rand(-120, 60))));
+        var targetY = ZC.Drop.surfaceBelow(a.x, startY);
         a.dropFromY = startY;
         a.dropVy = (targetY - startY) / dur;
         a.y = startY;

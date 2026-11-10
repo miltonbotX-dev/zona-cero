@@ -674,7 +674,8 @@ ok(ZC.bullets.length === 0, "durante la caída no se dispara", String(ZC.bullets
 ok(ZC.match.elapsed === 0, "el reloj de partida no corre durante la caída", String(ZC.match.elapsed));
 ok(ZC.__test.zone.r === zoneR0 && ZC.__test.zone.timer === zoneTimer0, "la zona espera a que aterricen");
 ok(ZC.__test.actors.filter(function (a) { return !a.isPlayer; }).every(function (a, i) { return a.x === bx0[i]; }), "los bots no se mueven en el aire");
-ok(dp.y > dp.dropFromY + 10 && (dp.landed || !dp.grounded), "tras 1 s va bajando (o ya pisó una pasarela)", dp.dropFromY.toFixed(1) + " -> " + dp.y.toFixed(1));
+ok(dp.y > dp.dropFromY + 10 && !dp.grounded && !dp.landed, "tras 1 s sigue bajando en paracaídas", dp.dropFromY.toFixed(1) + " -> " + dp.y.toFixed(1));
+ok(ZC.__test.actors.every(function (a) { return a.dead || !a.landed; }), "nadie aterriza antes de tiempo");
 // Guiar la caída
 const sx0 = dp.x;
 ZC.input.moveX = 1;

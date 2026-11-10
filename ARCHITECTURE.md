@@ -72,7 +72,7 @@ No reemplaces los arrays (`ZC.actors = []`): vacíalos con `.length = 0` (así l
 
 ## Caída con cuenta regresiva (v1.4)
 
-- `startMatch` crea a todos como antes y llama `ZC.Drop.start(ZC.CFG.dropTime)`. Cada actor sube a lo alto (`TOP_Y` en `js/drop.js`) sobre su punto de aparición y cae a velocidad fija calculada con `surfaceBelow`, para tocar tierra justo en el 0.
+- `startMatch` crea a todos como antes y llama `ZC.Drop.start(ZC.CFG.dropTime)`. Cada actor sube a lo alto (`TOP_Y` en `js/drop.js`) sobre su punto de aparición y cae a velocidad fija hasta la primera superficie bajo la salida (`surfaceBelow`), para tocar tierra justo en el 0 y no antes.
 - Mientras `ZC.Drop.active()`, `game.update` solo mueve la caída, las partículas y la cámara: no corre el reloj, ni la zona, ni piensan los bots, y nadie dispara. El jugador puede guiarse en horizontal.
 - Al terminar, `ZC.Drop.state.go` (0.9 s) muestra «A COMBATIR». En ese rato el jugador ya juega y los bots esperan quietos.
 - `ZC.state` sigue siendo `"playing"` durante la caída (las pruebas y el resto del código no cambian). `getState().drop` informa `on`, `count`, `t` y `dur`. `ZC.__test.skipDrop()` la salta. Con `ZC.CFG.dropTime = 0` no hay caída.

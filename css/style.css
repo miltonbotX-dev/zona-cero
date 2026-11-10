@@ -1,0 +1,301 @@
+/* Zona Cero — estilos de interfaz, overlays y controles táctiles.
+   El arreglo [hidden]{display:none!important} es obligatorio: .overlay usa display:flex
+   y, sin esta regla, el panel de resultado queda visible encima del juego. */
+/* --- Presentación general: industrial nocturno, sin recursos externos --- */
+    :root {
+      --bg: #070b14;
+      --panel: rgba(8, 14, 26, 0.86);
+      --line: rgba(92, 220, 255, 0.28);
+      --cyan: #5ce4ff;
+      --amber: #ffb020;
+      --rose: #ff5d7a;
+      --text: #e8f4ff;
+      --muted: #93a6bd;
+      --safe: #39d98a;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: var(--bg); color: var(--text);
+      font-family: "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif;
+      overflow: hidden; touch-action: none; user-select: none;
+    }
+    #app {
+      position: relative; width: 100%; height: 100%;
+      background: radial-gradient(1200px 700px at 50% 20%, #152038 0%, #070b14 70%);
+    }
+    #game {
+      display: block; width: 100%; height: 100%;
+      cursor: crosshair; background: #070b14;
+    }
+    .overlay {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      pointer-events: none; z-index: 5;
+    }
+    .overlay.active { pointer-events: auto; }
+    /* El stylesheet del navegador usa [hidden]{display:none}, pero
+       .overlay { display:flex } es CSS de autor con la misma especificidad
+       y lo pisa: el panel de resultado (hidden) seguía dibujándose encima
+       y "Jugar" / "Jugar de nuevo" solo quitaban pointer-events. */
+    [hidden] { display: none !important; }
+    .panel {
+      width: min(720px, calc(100% - 28px));
+      background: linear-gradient(180deg, rgba(12, 20, 38, 0.94), rgba(7, 11, 20, 0.92));
+      border: 1px solid var(--line);
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 24px 80px rgba(0,0,0,0.55), 0 0 80px rgba(40, 180, 255, 0.08);
+      padding: 28px 28px 22px;
+      position: relative;
+      overflow: hidden;
+    }
+    .panel::before {
+      content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+      background: linear-gradient(90deg, transparent, var(--cyan), var(--amber), transparent);
+    }
+    .kicker {
+      letter-spacing: 0.42em; text-transform: uppercase; color: var(--cyan);
+      font-size: 11px; margin: 0 0 8px;
+    }
+    h1 {
+      margin: 0 0 6px; font-size: clamp(34px, 7vw, 58px); letter-spacing: 0.16em;
+      font-weight: 800; text-transform: uppercase;
+      text-shadow: 0 0 24px rgba(92, 228, 255, 0.35);
+    }
+    .tagline { margin: 0 0 18px; color: var(--muted); font-size: 15px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0 18px; }
+    button.cta, button.ghost {
+      border: 0; cursor: pointer; font: inherit; letter-spacing: 0.14em;
+      text-transform: uppercase; padding: 12px 22px; font-weight: 700;
+    }
+    button.cta {
+      background: linear-gradient(180deg, #6aefff, #2bb7d6);
+      color: #04202a; box-shadow: 0 0 24px rgba(92, 228, 255, 0.35);
+    }
+    button.cta:hover { filter: brightness(1.08); }
+    button.ghost {
+      background: transparent; color: var(--text);
+      border: 1px solid rgba(92, 220, 255, 0.35);
+    }
+    .grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px;
+      color: var(--muted); font-size: 13px; line-height: 1.45;
+    }
+    .grid h3 {
+      margin: 0 0 6px; color: var(--amber); font-size: 12px;
+      letter-spacing: 0.16em; text-transform: uppercase;
+    }
+    .grid p { margin: 0; }
+    .footnote { margin: 16px 0 0; color: #6f8299; font-size: 12px; }
+    #end-screen .statline { color: var(--text); margin: 0 0 14px; font-size: 16px; }
+    #end-screen h2 { margin: 0 0 8px; letter-spacing: 0.18em; text-transform: uppercase; }
+    #end-screen.win h2 { color: var(--safe); }
+    #end-screen.lose h2 { color: var(--rose); }
+    #touch-ui {
+      position: absolute; inset: 0; z-index: 4; pointer-events: none;
+      display: none;
+    }
+    #touch-ui.show { display: block; }
+    .joy {
+      position: absolute; width: calc(132px * var(--touch-scale, 1)); height: calc(132px * var(--touch-scale, 1));
+      border-radius: 50%;
+      background: rgba(8, 16, 30, 0.28); border: 2px solid rgba(92, 228, 255, 0.22);
+      pointer-events: auto; touch-action: none;
+    }
+    #joy-left { left: 28px; bottom: 24px; }
+    #joy-right { right: 28px; bottom: 24px; }
+    .knob {
+      position: absolute; width: 56px; height: 56px; border-radius: 50%;
+      left: 50%; top: 50%; transform: translate(-50%, -50%);
+      background: rgba(92, 228, 255, 0.28); border: 2px solid rgba(180, 245, 255, 0.7);
+      box-shadow: 0 0 16px rgba(92, 228, 255, 0.25); pointer-events: none;
+    }
+    .touch-btn {
+      position: absolute; pointer-events: auto; touch-action: none;
+      width: calc(72px * var(--touch-scale, 1)); height: calc(72px * var(--touch-scale, 1)); border-radius: 50%;
+      border: 2px solid rgba(255, 176, 32, 0.55);
+      background: rgba(18, 22, 34, 0.45); color: #ffe3a6;
+      font: 700 11px/1 "Segoe UI", sans-serif; letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    #btn-jump { right: 178px; bottom: 38px; }
+    #btn-reload { right: 168px; bottom: 118px; border-color: rgba(92,228,255,0.45); color: #c8f6ff; }
+    #btn-swap { right: 250px; bottom: 96px; width: calc(58px * var(--touch-scale, 1)); height: calc(58px * var(--touch-scale, 1)); border-color: rgba(255,255,255,0.28); color: #fff; }
+    .icon-btn {
+      position: absolute; top: 12px; right: 12px; z-index: 6;
+      width: 44px; height: 44px; border-radius: 8px;
+      border: 1px solid var(--line); background: var(--panel); color: var(--text);
+      pointer-events: auto; cursor: pointer; font-size: 18px;
+    }
+    #portrait-warn {
+      display: none; position: absolute; inset: 0; z-index: 20;
+      background: rgba(7,11,20,0.92); align-items: center; justify-content: center;
+      text-align: center; padding: 24px; font-size: 18px;
+    }
+    @media (orientation: portrait) and (max-width: 900px) {
+      #portrait-warn { display: flex; }
+    }
+    @media (max-width: 720px) {
+      .grid { grid-template-columns: 1fr; }
+      .joy { width: calc(114px * var(--touch-scale, 1)); height: calc(114px * var(--touch-scale, 1)); }
+      #joy-left { left: 14px; bottom: 16px; }
+      #joy-right { right: 14px; bottom: 16px; }
+      #btn-jump { right: 140px; bottom: 28px; width: calc(64px * var(--touch-scale, 1)); height: calc(64px * var(--touch-scale, 1)); }
+      #btn-reload { right: 132px; bottom: 100px; width: calc(58px * var(--touch-scale, 1)); height: calc(58px * var(--touch-scale, 1)); }
+      #btn-swap { right: 204px; bottom: 82px; width: calc(52px * var(--touch-scale, 1)); height: calc(52px * var(--touch-scale, 1)); }
+    }
+
+    /* Lobby al estilo sala: personaje al centro, fichas abajo, iniciar a la derecha */
+    #lobby-screen.lobby-shell {
+      display: block;
+      background:
+        radial-gradient(820px 480px at 32% 72%, rgba(40, 90, 130, 0.28), transparent 62%),
+        linear-gradient(180deg, rgba(7, 11, 20, 0.18), rgba(7, 11, 20, 0.72));
+    }
+    .lobby-top {
+      position: absolute; top: 0; left: 0; right: 64px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 14px 16px 28px;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent);
+      pointer-events: none;
+    }
+    .lobby-top button, .lobby-top input { pointer-events: auto; }
+    .lobby-id { display: flex; gap: 10px; align-items: center; }
+    .lobby-badge {
+      width: 46px; height: 46px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(180deg, #6aefff, #2bb7d6); color: #04202a;
+      font-weight: 800; letter-spacing: 0.04em;
+    }
+    .lobby-name {
+      width: 168px; margin: 0; padding: 2px 0; border: 0;
+      border-bottom: 1px solid rgba(92, 228, 255, 0.4);
+      background: transparent; color: var(--text);
+      font: 700 18px/1.2 inherit; letter-spacing: 0.06em; border-radius: 0;
+    }
+    .lobby-sub { margin: 4px 0 0; color: var(--amber); font-size: 12px; letter-spacing: 0.08em; }
+    .lobby-top-actions { display: flex; gap: 8px; }
+    .lobby-icon {
+      width: 44px; height: 44px; border-radius: 8px; cursor: pointer;
+      border: 1px solid var(--line); background: rgba(8, 14, 26, 0.72);
+      color: var(--text); font-size: 18px;
+    }
+    .lobby-stage {
+      position: absolute; left: 18%; bottom: 12%;
+      width: min(340px, 38vw); aspect-ratio: 3 / 4;
+      pointer-events: none;
+    }
+    .lobby-stage::after {
+      content: ""; position: absolute; left: 16%; right: 16%; bottom: 7%;
+      height: 16px; border-radius: 50%;
+      background: rgba(92, 228, 255, 0.14);
+      box-shadow: 0 0 28px rgba(92, 228, 255, 0.22);
+    }
+    #lobby-preview {
+      width: 100%; height: 100%; display: block;
+      background: transparent; border: 0;
+    }
+    .lobby-dock {
+      position: absolute; left: 18px; bottom: 22px;
+      display: flex; gap: 8px; z-index: 2;
+    }
+    .lobby-dock button {
+      width: 86px; min-height: 64px; cursor: pointer;
+      border: 1px solid rgba(92, 220, 255, 0.28);
+      background: rgba(8, 14, 26, 0.78); color: var(--text);
+      font: 700 11px/1.2 inherit; letter-spacing: 0.12em; text-transform: uppercase;
+    }
+    .lobby-map-card {
+      position: absolute; right: 22px; bottom: 108px; width: 210px;
+      text-align: left; cursor: pointer; z-index: 2;
+      padding: 10px 12px; border-radius: 6px;
+      border: 1px solid rgba(255, 176, 32, 0.5);
+      background: rgba(8, 14, 26, 0.78); color: var(--text); font: inherit;
+    }
+    .lobby-map-card .kicker { margin: 0 0 4px; }
+    .lobby-map-card strong { display: block; font-size: 16px; letter-spacing: 0.04em; }
+    .lobby-map-card span { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .lobby-start {
+      position: absolute; right: 22px; bottom: 22px; z-index: 2;
+      min-width: 210px; height: 72px; border: 0; cursor: pointer;
+      background: linear-gradient(180deg, #ffe08a, #f0a020);
+      color: #2a1a04; font: 800 18px/1 inherit; letter-spacing: 0.22em;
+      text-transform: uppercase;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+    }
+    .lobby-sheet {
+      position: absolute; left: 16px; top: 78px; bottom: 108px;
+      width: min(380px, calc(100% - 250px)); z-index: 3;
+      display: flex; flex-direction: column; gap: 10px;
+      padding: 14px; overflow: auto;
+      background: rgba(8, 14, 26, 0.94);
+      border: 1px solid var(--line);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+    }
+    .lobby-sheet-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .lobby-sheet h3 {
+      margin: 0; color: var(--amber); font-size: 13px;
+      letter-spacing: 0.16em; text-transform: uppercase;
+    }
+    .set-row { margin: 0 0 14px; }
+    .set-row label {
+      display: flex; justify-content: space-between; gap: 8px;
+      color: var(--muted); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .set-row input[type="range"] { width: 100%; margin-top: 6px; }
+    .lobby-label {
+      display: block; margin: 8px 0 6px; color: var(--muted);
+      font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    }
+    #touch-ui.layout-edit { display: block; z-index: 8; }
+    #touch-ui.layout-edit .joy,
+    #touch-ui.layout-edit .touch-btn {
+      outline: 2px dashed rgba(255, 176, 32, 0.9);
+      outline-offset: 3px;
+    }
+    #layout-bar {
+      position: absolute; left: 50%; top: 14px; transform: translateX(-50%);
+      z-index: 9; display: flex; gap: 8px; align-items: center;
+      max-width: calc(100% - 24px);
+      padding: 10px 12px; pointer-events: auto;
+      background: rgba(8, 14, 26, 0.94);
+      border: 1px solid rgba(255, 176, 32, 0.55);
+    }
+    #layout-bar p { margin: 0; font-size: 13px; color: var(--text); }
+    @media (max-width: 800px) {
+      .lobby-stage { left: 8%; width: min(240px, 46vw); bottom: 18%; }
+      .lobby-map-card, .lobby-start { right: 10px; min-width: 0; width: 148px; }
+      .lobby-start { height: 58px; letter-spacing: 0.12em; font-size: 15px; }
+      .lobby-map-card { bottom: 84px; width: 148px; }
+      .lobby-dock button { width: 72px; min-height: 54px; }
+      .lobby-sheet { left: 8px; right: 8px; width: auto; top: auto; height: 54%; bottom: 96px; }
+    }
+    .look-chip, .map-card, .inv-card {
+      width: 100%; margin: 0 0 8px; padding: 8px 10px; border-radius: 8px;
+      border: 1px solid rgba(92, 220, 255, 0.28);
+      background: rgba(8, 14, 26, 0.55); color: var(--text);
+      font: inherit; text-align: left; cursor: pointer;
+    }
+    .look-chip, .map-card { display: block; }
+    .look-chip strong, .map-card strong, .inv-card strong { display: block; font-size: 14px; }
+    .look-chip span, .map-card span, .inv-meta {
+      display: block; color: var(--muted); font-size: 12px; line-height: 1.35; margin-top: 2px;
+    }
+    .look-chip.on, .map-card.on, .inv-card.on {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 1px rgba(92, 228, 255, 0.35);
+    }
+    .inv-card {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .inv-card .hand {
+      flex: 1; text-align: left; border: 0; background: transparent;
+      color: inherit; font: inherit; cursor: pointer; padding: 0;
+    }
+    button.mini {
+      border: 1px solid rgba(255, 255, 255, 0.22); background: transparent;
+      color: var(--muted); font: inherit; font-size: 11px;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 6px 8px; cursor: pointer; border-radius: 6px;
+    }
+    @media (max-width: 800px) {
+      .lobby-grid { grid-template-columns: 1fr; }
+    }

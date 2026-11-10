@@ -30,5 +30,5 @@ ZC.CFG = {
     bulletMax: 90
   };
   ZC.BOT_NAMES = ["Lobo", "Sombra", "Nox", "Vale", "Rift", "Hex", "Ion"];
-  ZC.BOT_COLORS = ["#ff8a4c", "#c084fc", "#4ade80", "#f472b6", "#facc15", "#60a5fa", "#fb7185"];
+  ZC.BOT_COLORS = ["#c8743f", "#8f7aa8", "#7f9a52", "#b86a6a", "#c9a646", "#6f8aa3", "#a8604a"];
 })(typeof window !== "undefined" ? window : globalThis);

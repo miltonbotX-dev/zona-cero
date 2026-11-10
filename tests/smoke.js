@@ -510,6 +510,74 @@ ok(ZC.player.gun.current === "shotgun", "despliega con el arma primaria del perf
 try { ZC.draw(); ok(true, "draw() con aspecto sombra no lanza"); }
 catch (e) { ok(false, "draw() con aspecto sombra no lanza", e && e.message); }
 
+// ---------------------------------------------------------------------------
+// 7) Estilo tierra/militar (v1.3): fondos con imagen y sin neón
+// ---------------------------------------------------------------------------
+console.log("7. Fondos con imagen y paleta sin neón");
+const NEON = /#5ce4ff|#6aefff|#2bb7d6|#7af0ff|#9be7ff|#7dffb0|#c084fc|rgba\(\s*92\s*,\s*2[0-9]{2}\s*,\s*255/i;
+ok(!NEON.test(css), "css/style.css ya no usa el cian/lila neón");
+ok(!/text-shadow\s*:[^;]*rgba\(\s*92/i.test(css), "sin text-shadow cian en el CSS");
+ok(!/--cyan/.test(css), "la variable --cyan desaparece del CSS");
+ok(/--bg:\s*#17130e/i.test(css), "fondo base cálido (--bg #17130e)");
+["render.js", "appearance.js", "lobby.js", "config.js", "weapons.js", "combat.js"].forEach(function (f) {
+  const code = fs.readFileSync(path.join(root, "js", f), "utf8");
+  ok(!NEON.test(code), "js/" + f + " sin colores neón");
+});
+const renderSrc = fs.readFileSync(path.join(root, "js", "render.js"), "utf8");
+ok(!/shadowBlur\s*=\s*[1-9]/.test(renderSrc), "render.js no usa brillos (shadowBlur)");
+ok(!/ZC\.stars\.forEach/.test(renderSrc), "render.js ya no pinta estrellas encima del fondo");
+const appearanceSrc = fs.readFileSync(path.join(root, "js", "appearance.js"), "utf8");
+ok(!/shadowBlur\s*=\s*[1-9]/.test(appearanceSrc), "visores sin glow en appearance.js");
+
+ZC.Maps.list().forEach(function (id) {
+  const def = ZC.Maps.all[id];
+  ok(typeof def.backgroundImage === "string" && /^assets\/maps\/[a-z0-9-]+\.(webp|jpe?g|png)$/.test(def.backgroundImage),
+    "mapa " + id + " declara backgroundImage relativo", def.backgroundImage);
+  const file = def.backgroundImage ? path.join(root, def.backgroundImage) : "";
+  ok(file && fs.existsSync(file) && fs.statSync(file).size > 10000 && fs.statSync(file).size < 400000,
+    "la imagen de " + id + " existe y pesa poco (<400 KB)", file);
+  ok(Array.isArray(def.bgFallback) && def.bgFallback.length === 3, "mapa " + id + " trae color tierra de respaldo");
+});
+ok(typeof ZC.Maps.preload === "function" && typeof ZC.Maps.imageFor === "function", "API de precarga de fondos");
+ok(ZC.Maps.imageFor(ZC.map) === null, "sin Image (stub) imageFor devuelve null y se usa el respaldo");
+
+// Simula imágenes ya cargadas: el fondo se dibuja primero, antes que plataformas y cajas.
+(function () {
+  const calls = [];
+  const fakeImg = { complete: true, naturalWidth: 1636, naturalHeight: 920 };
+  ZC.Maps.list().forEach(function (id) { ZC.Maps.images[ZC.Maps.all[id].backgroundImage] = fakeImg; });
+  const realCtx = ZC.ctx;
+  const spy = Object.assign({}, makeCtx());
+  spy.drawImage = function (img, x, y, w, h) { calls.push({ op: "img", x: x, y: y, w: w, h: h }); };
+  spy.fillRect = function () { calls.push({ op: "rect" }); };
+  ZC.ctx = spy;
+  ZC.Maps.list().forEach(function (id) {
+    calls.length = 0;
+    ZC.Maps.use(id);
+    try {
+      ZC.drawBackdrop();
+      const nBack = calls.length;
+      ZC.drawWorld();
+      const imgIdx = calls.findIndex(function (c) { return c.op === "img"; });
+      ok(imgIdx >= 0 && imgIdx < nBack, "drawBackdrop dibuja la imagen de " + id + " antes del mundo");
+      const r = calls[imgIdx];
+      ok(r && r.h >= ZC.CFG.worldH - 1 && r.w >= ZC.viewW - 1, "la imagen de " + id + " cubre el alto del mundo y el ancho de la vista",
+        r && (r.w + "x" + r.h));
+      ok(r && approx(r.y + r.h, ZC.CFG.worldH, 1), "la imagen de " + id + " queda apoyada abajo del mundo");
+    } catch (e) { ok(false, "drawBackdrop con imagen (" + id + ") no lanza", e && e.message); }
+  });
+  // Parallax: en ambos extremos de la cámara la imagen sigue cubriendo la vista
+  ZC.Maps.use("arena-industrial");
+  [0, ZC.CFG.worldW - ZC.viewW].forEach(function (cx) {
+    ZC.cam.x = cx;
+    const r = ZC.backdropRect(fakeImg);
+    ok(r.x <= cx + 0.5 && r.x + r.w >= cx + ZC.viewW - 0.5, "parallax cubre la vista con cámara en x=" + cx,
+      r.x + ".." + (r.x + r.w));
+  });
+  ZC.ctx = realCtx;
+  ZC.Maps.images = {};
+})();
+
 ZC.profile = { name: "Tú", look: "operativo", mapId: "arena-industrial", primary: "rifle", carried: ["rifle", "shotgun"], hp: 100, bots: 7, controlScale: 1, layout: null };
 ZC.saveProfile();
 ZC.Maps.use("arena-industrial");

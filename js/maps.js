@@ -1,6 +1,6 @@
 /* ============================================================================
    Zona Cero — mapas
-   Contrato: Registro ZC.Maps y mapa activo ZC.map (platforms, crates, spawns, silos, lootSpots, blurb). El lobby lista ZC.Maps.list() y startMatch usa el mapa del perfil.
+   Contrato: Registro ZC.Maps y mapa activo ZC.map (platforms, crates, spawns, silos, lootSpots, blurb, backgroundImage, bgFallback). Precarga las imágenes de fondo (ZC.Maps.preload / imageFor). El lobby lista ZC.Maps.list() y startMatch usa el mapa del perfil.
    Depende de: js/zc.js, js/config.js
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.
    ========================================================================== */
@@ -16,6 +16,8 @@ function crate(x, y, w, h) { return { x: x, y: y, w: w || 40, h: h || 40 }; }
     id: "arena-industrial",
     name: "Nave industrial",
     blurb: "Cajas, pasarelas y tres alturas. El mapa de siempre.",
+    backgroundImage: "assets/maps/industrial.webp",
+    bgFallback: ["#5a4632", "#3a2e22", "#1f1a14"],
     platforms: [
       { x: 140, y: 680, w: 260, h: 20 },
       { x: 470, y: 540, w: 230, h: 20 },
@@ -75,12 +77,37 @@ function crate(x, y, w, h) { return { x: x, y: y, w: w || 40, h: h || 40 }; }
       ZC.map = def;
       return def;
     },
-    list: function () { return Object.keys(this.all); }
+    list: function () { return Object.keys(this.all); },
+    // Fondos con imagen: se cargan una vez y se guardan aquí por ruta.
+    images: {},
+    preload: function () {
+      if (typeof global.Image !== "function") return 0;
+      var self = this, n = 0;
+      Object.keys(this.all).forEach(function (id) {
+        var src = self.all[id].backgroundImage;
+        if (!src || self.images[src]) return;
+        var img = new global.Image();
+        img.decoding = "async";
+        img.src = src;
+        self.images[src] = img;
+        n += 1;
+      });
+      return n;
+    },
+    // Devuelve la imagen del mapa solo si ya cargó; si no, null (render usa bgFallback).
+    imageFor: function (def) {
+      def = def || ZC.map;
+      if (!def || !def.backgroundImage) return null;
+      var img = this.images[def.backgroundImage];
+      return img && img.complete && img.naturalWidth > 0 ? img : null;
+    }
   };
   var muelle = {
     id: "muelle",
     name: "Muelle norte",
     blurb: "Pasarelas bajas y cajas en fila. Poca altura, mucho cruce.",
+    backgroundImage: "assets/maps/muelle.webp",
+    bgFallback: ["#55574c", "#3a3c33", "#1e1f1a"],
     platforms: [
       { x: 60, y: 700, w: 480, h: 18 },
       { x: 620, y: 620, w: 260, h: 18 },
@@ -119,6 +146,8 @@ function crate(x, y, w, h) { return { x: x, y: y, w: w || 40, h: h || 40 }; }
     id: "azoteas",
     name: "Azoteas",
     blurb: "Tres torres y puentes altos. Quien tiene la altura dispara primero.",
+    backgroundImage: "assets/maps/azoteas.webp",
+    bgFallback: ["#6a4f30", "#41321f", "#211a12"],
     platforms: [
       { x: 140, y: 640, w: 200, h: 18 },
       { x: 180, y: 480, w: 170, h: 18 },
@@ -160,4 +189,5 @@ function crate(x, y, w, h) { return { x: x, y: y, w: w || 40, h: h || 40 }; }
   ZC.Maps.register(muelle.id, muelle);
   ZC.Maps.register(azoteas.id, azoteas);
   ZC.Maps.use("arena-industrial");
+  ZC.Maps.preload();
 })(typeof window !== "undefined" ? window : globalThis);

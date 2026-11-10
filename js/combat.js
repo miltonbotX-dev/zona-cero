@@ -15,7 +15,7 @@ ZC.fireWeapon = function (actor) {
     if (!w || actor.dead || actor.gun.cooldown > 0 || actor.gun.reloading > 0) return false;
     if (clip.mag <= 0) {
       if (clip.reserve > 0) ZC.startReload(actor);
-      else if (actor === ZC.player) ZC.addFloat(actor.x, actor.y - 40, "SIN MUNICIÓN", "#ffb020");
+      else if (actor === ZC.player) ZC.addFloat(actor.x, actor.y - 40, "SIN MUNICIÓN", "#d99a3a");
       return false;
     }
     clip.mag -= 1;
@@ -117,11 +117,11 @@ ZC.fireWeapon = function (actor) {
     if (item.type === "health") {
       const before = actor.hp;
       actor.hp = Math.min(actor.maxHp, actor.hp + 38);
-      if (actor === ZC.player) ZC.addFloat(actor.x, actor.y - 46, "+" + Math.round(actor.hp - before) + " HP", "#5dff9a");
+      if (actor === ZC.player) ZC.addFloat(actor.x, actor.y - 46, "+" + Math.round(actor.hp - before) + " HP", "#a8cf6e");
     } else if (item.type === "ammo") {
       actor.gun.rifle.reserve = Math.min(90, actor.gun.rifle.reserve + 18);
       actor.gun.shotgun.reserve = Math.min(36, actor.gun.shotgun.reserve + 6);
-      if (actor === ZC.player) ZC.addFloat(actor.x, actor.y - 46, "+MUNICIÓN", "#7ad7ff");
+      if (actor === ZC.player) ZC.addFloat(actor.x, actor.y - 46, "+MUNICIÓN", "#e0c27a");
     } else if (item.type === "weapon") {
       const id = item.weapon === "shotgun" ? "shotgun" : "rifle";
       actor.gun[id].reserve = Math.min(id === "rifle" ? 90 : 36, actor.gun[id].reserve + ZC.WEAPONS[id].mag);

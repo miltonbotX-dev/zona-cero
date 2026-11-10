@@ -13,12 +13,12 @@ ZC.WEAPONS = {
     rifle: {
       id: "rifle", name: "Fusil", damage: 16, pellets: 1, spread: 0.032,
       speed: 1000, range: 1020, fireDelay: 0.125, mag: 24, reserve: 48,
-      reload: 1.2, auto: true, color: "#7ad7ff", recoil: 0.07
+      reload: 1.2, auto: true, color: "#cdbb8a", recoil: 0.07
     },
     shotgun: {
       id: "shotgun", name: "Escopeta", damage: 9, pellets: 5, spread: 0.2,
       speed: 820, range: 350, fireDelay: 0.58, mag: 6, reserve: 18,
-      reload: 1.5, auto: false, color: "#ffcf6b", recoil: 0.2
+      reload: 1.5, auto: false, color: "#e0a85a", recoil: 0.2
     }
   };
 

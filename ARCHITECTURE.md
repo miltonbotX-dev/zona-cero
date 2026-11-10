@@ -28,7 +28,7 @@ No reemplaces los arrays (`ZC.actors = []`): vacíalos con `.length = 0` (así l
 
 - **config:** solo datos numéricos.
 - **weapons:** fichas y `registerWeapon` / `copyLoadout`. El disparo vive en combat.
-- **maps:** `ZC.Maps.register(id, def)` y `ZC.Maps.use(id)`. Un mapa trae `platforms`, `crates`, `spawns`, `silos`, `lootSpots` y, si se quiere, `blurb`. Mapas actuales: `arena-industrial`, `muelle`, `azoteas`.
+- **maps:** `ZC.Maps.register(id, def)` y `ZC.Maps.use(id)`. Un mapa trae `platforms`, `crates`, `spawns`, `silos`, `lootSpots`, `backgroundImage`, `bgFallback` y, si se quiere, `blurb`. Mapas actuales: `arena-industrial`, `muelle`, `azoteas`. `ZC.Maps.preload()` y `ZC.Maps.imageFor(def)` manejan las imágenes de fondo.
 - **entities:** fábricas (`makeActor`, `spawnLoot`, partículas).
 - **physics:** `collideWorld`, `tryJump`, `controlActor` (esta última dispara/recarga llamando a combat).
 - **combat:** proyectiles, daño, muerte (suelta loot) y `pickLoot`. Llama `ZC.checkWinner` al matar.
@@ -46,10 +46,20 @@ No reemplaces los arrays (`ZC.actors = []`): vacíalos con `.length = 0` (así l
 ## Puntos de extensión
 
 1. **Nueva pantalla:** crear el overlay en `index.html` (con `hidden`), registrarlo en `ZC.UI.screens` y mostrarlo con `ZC.UI.show("id")`. El arreglo CSS `[hidden] { display: none !important; }` tiene que seguir ahí.
-2. **Nuevo mapa:** `ZC.Maps.register` + listarlo en el lobby con `ZC.Maps.list()`. Los mapas de hoy se dibujan con formas en `render.js` (plataformas, cajas, silos). Más adelante se puede poner una imagen de fondo o teselas: añade `backgroundImage` (o un atlas) en la definición del mapa y, en `render.js`, `ctx.drawImage` detrás de las colisiones. Las cajas y plataformas pueden seguir siendo datos, o una capa de colisión aparte. Así se ahorra código de decorado sin cambiar la física.
+2. **Nuevo mapa:** `ZC.Maps.register` + listarlo en el lobby con `ZC.Maps.list()`. Cada mapa tiene una imagen de fondo (ver «Fondos con imagen» más abajo). Las cajas y plataformas siguen siendo datos para la física y se dibujan encima.
 3. **Nueva arma:** `ZC.registerWeapon` y entregarla por loot, loadout o la mochila del lobby.
 4. **Nuevo aspecto:** `ZC.Appearance.register` en `js/appearance.js`. El lobby lo lista solo.
 5. **Controles:** `ZC.Input.bindings` para teclado. El layout táctil se guarda en `ZC.profile.layout`.
+
+## Fondos con imagen (v1.3)
+
+- Archivos en `assets/maps/` (WebP 1636×920, unos 80 KB). La imagen es solo decorado: no tiene colisiones.
+- En `js/maps.js` cada mapa declara `backgroundImage: "assets/maps/<nombre>.webp"` y `bgFallback: [cielo, medio, suelo]`.
+- `ZC.Maps.preload()` corre al cargar `maps.js` y crea un `Image` por mapa (guardadas en `ZC.Maps.images`). Así, al pulsar Iniciar la imagen ya está lista y no parpadea.
+- `render.js` → `ZC.drawBackdrop()`: pinta el degradado `bgFallback`, luego la imagen con `ZC.backdropRect(img)` y una sombra leve (`ZC.PALETTE.shadeImage`) para que los personajes se lean. Después `drawWorld()` pinta suelo, pasarelas y cajas.
+- Parallax: la imagen mide el alto del mundo (920) y se desplaza más lento que la cámara. Con la cámara a la izquierda se ve el borde izquierdo de la imagen; a la derecha, el borde derecho. Una imagen 16:9 basta para el mundo de 2600 de ancho.
+- Para un mapa nuevo: genera o dibuja una imagen 16:9 en vista lateral, sin texto, con el suelo en la franja de abajo, expórtala a WebP y ponla en `backgroundImage`.
+- Los colores del escenario (suelo, acero, franjas) están juntos en `ZC.PALETTE`, al principio de `render.js`.
 
 ## Dependencias de carga
 

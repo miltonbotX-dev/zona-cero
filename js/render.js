@@ -59,101 +59,108 @@
     ZC.drawHUD();
   }
 
+  // Paleta del escenario (tierra / militar). Cambia aquí el tono general del mundo.
+  ZC.PALETTE = {
+    ground: "#2a231a", groundTop: "#5b4b36", groundBand: "#3b3024", groundLine: "rgba(214,190,140,0.07)",
+    steel: "#3f3d33", steelTop: "#6e6752", steelShade: "rgba(0,0,0,0.28)", stripeA: "#a8843f", stripeB: "#2a261f",
+    haze: "rgba(60,44,28,0.38)", shadeImage: "rgba(24,18,12,0.22)"
+  };
+
+  // Fondo con imagen por mapa (js/maps.js → backgroundImage). Se dibuja con parallax:
+  // la imagen mide lo mismo de alto que el mundo y se desplaza más lento que la cámara,
+  // así una imagen 16:9 cubre un mundo más ancho sin estirarse.
+  ZC.backdropRect = function (img) {
+    const W = ZC.CFG.worldW, H = ZC.CFG.worldH;
+    const s = Math.max(H / img.naturalHeight, ZC.viewW / img.naturalWidth);
+    const dw = img.naturalWidth * s, dh = img.naturalHeight * s;
+    const span = Math.max(1, W - ZC.viewW);
+    const t = ZC.util.clamp(ZC.cam.x / span, 0, 1);
+    const x = ZC.cam.x - t * Math.max(0, dw - ZC.viewW);
+    return { x: x, y: H - dh, w: dw, h: dh };
+  };
+
   ZC.drawBackdrop = function () {
-    // Cielo nocturno en degradado
-    const g = ZC.ctx.createLinearGradient(0, 0, 0, ZC.CFG.worldH);
-    g.addColorStop(0, "#0b1224");
-    g.addColorStop(0.45, "#121a30");
-    g.addColorStop(0.78, "#1a2236");
-    g.addColorStop(1, "#0d121c");
-    ZC.ctx.fillStyle = g;
-    ZC.ctx.fillRect(ZC.cam.x - 20, ZC.cam.y - 20, ZC.viewW + 40, ZC.viewH + 40);
+    const c = ZC.ctx, P = ZC.PALETTE;
+    const fb = (ZC.map && ZC.map.bgFallback) || ["#5a4632", "#3a2e22", "#1f1a14"];
+    // Respaldo color tierra mientras la imagen carga (o si falta)
+    const g = c.createLinearGradient(0, 0, 0, ZC.CFG.worldH);
+    g.addColorStop(0, fb[0]);
+    g.addColorStop(0.7, fb[1]);
+    g.addColorStop(1, fb[2]);
+    c.fillStyle = g;
+    c.fillRect(ZC.cam.x - 20, ZC.cam.y - 20, ZC.viewW + 40, ZC.viewH + 40);
 
-    // Luna
-    ZC.ctx.fillStyle = "#d9e7ff";
-    ZC.ctx.shadowColor = "rgba(180,210,255,0.55)";
-    ZC.ctx.shadowBlur = 30;
-    ZC.ctx.beginPath(); ZC.ctx.arc(2100, 120, 38, 0, Math.PI * 2); ZC.ctx.fill();
-    ZC.ctx.shadowBlur = 0;
-    ZC.ctx.fillStyle = "#0b1224";
-    ZC.ctx.beginPath(); ZC.ctx.arc(2116, 110, 30, 0, Math.PI * 2); ZC.ctx.fill();
+    const img = ZC.Maps && ZC.Maps.imageFor ? ZC.Maps.imageFor(ZC.map) : null;
+    if (img && c.drawImage) {
+      const r = ZC.backdropRect(img);
+      c.drawImage(img, r.x, r.y, r.w, r.h);
+      // Leve sombra para que personajes y balas se lean encima de la imagen
+      c.fillStyle = P.shadeImage;
+      c.fillRect(ZC.cam.x - 20, ZC.cam.y - 20, ZC.viewW + 40, ZC.viewH + 40);
+    } else {
+      // Sin imagen: siluetas sobrias del mapa para dar profundidad
+      ZC.map.silos.forEach(function (s) {
+        c.fillStyle = "rgba(28,22,16,0.75)";
+        c.fillRect(s.x, ZC.CFG.groundY - s.h, s.w, s.h);
+        c.fillRect(s.x + s.w * 0.35, ZC.CFG.groundY - s.h - 50, 16, 50);
+      });
+    }
 
-    ZC.stars.forEach(function (s) {
-      ZC.ctx.globalAlpha = s.a * (0.7 + 0.3 * Math.sin(ZC.match.elapsed * 2 + s.x));
-      ZC.ctx.fillStyle = "#dce7ff";
-      ZC.ctx.fillRect(s.x, s.y, s.s, s.s);
-    });
-    ZC.ctx.globalAlpha = 1;
-
-    // Siluetas de planta industrial
-    ZC.map.silos.forEach(function (s) {
-      ZC.ctx.fillStyle = "#0a101c";
-      ZC.ctx.fillRect(s.x, ZC.CFG.groundY - s.h, s.w, s.h);
-      ZC.ctx.fillRect(s.x + s.w * 0.35, ZC.CFG.groundY - s.h - 50, 16, 50);
-      ZC.ctx.fillStyle = "#151c2c";
-      ZC.ctx.fillRect(s.x + 4, ZC.CFG.groundY - s.h + 4, s.w - 8, 8);
-    });
-    ZC.windows.forEach(function (w) {
-      const on = w.on && ((ZC.match.elapsed + w.flicker) % 7 > 0.25);
-      ZC.ctx.fillStyle = on ? "rgba(255, 196, 90, 0.72)" : "rgba(30, 40, 58, 0.8)";
-      ZC.ctx.fillRect(w.x, w.y, 10, 12);
-    });
-
-    // Niebla baja
-    const fog = ZC.ctx.createLinearGradient(0, ZC.CFG.groundY - 160, 0, ZC.CFG.worldH);
-    fog.addColorStop(0, "rgba(20,30,50,0)");
-    fog.addColorStop(1, "rgba(10,14,24,0.55)");
-    ZC.ctx.fillStyle = fog;
-    ZC.ctx.fillRect(0, ZC.CFG.groundY - 160, ZC.CFG.worldW, ZC.CFG.worldH - (ZC.CFG.groundY - 160));
+    // Polvo bajo, cálido, para asentar el suelo
+    const fog = c.createLinearGradient(0, ZC.CFG.groundY - 140, 0, ZC.CFG.groundY);
+    fog.addColorStop(0, "rgba(60,44,28,0)");
+    fog.addColorStop(1, P.haze);
+    c.fillStyle = fog;
+    c.fillRect(ZC.cam.x - 20, ZC.CFG.groundY - 140, ZC.viewW + 40, 140);
   }
 
   ZC.drawWorld = function () {
-    // Suelo
-    ZC.ctx.fillStyle = "#1b2230";
-    ZC.ctx.fillRect(0, ZC.CFG.groundY, ZC.CFG.worldW, ZC.CFG.worldH - ZC.CFG.groundY);
-    ZC.ctx.fillStyle = "#2a3344";
-    ZC.ctx.fillRect(0, ZC.CFG.groundY, ZC.CFG.worldW, 8);
-    ZC.ctx.fillStyle = "#3d2a14";
-    ZC.ctx.fillRect(0, ZC.CFG.groundY + 8, ZC.CFG.worldW, 10);
-    // Rejilla de metal en el piso
-    ZC.ctx.strokeStyle = "rgba(80,100,130,0.18)";
-    ZC.ctx.lineWidth = 1;
-    for (let x = 0; x < ZC.CFG.worldW; x += 40) {
-      ZC.ctx.beginPath(); ZC.ctx.moveTo(x, ZC.CFG.groundY); ZC.ctx.lineTo(x, ZC.CFG.worldH); ZC.ctx.stroke();
+    const c = ZC.ctx, P = ZC.PALETTE;
+    // Suelo de tierra apisonada
+    c.fillStyle = P.ground;
+    c.fillRect(0, ZC.CFG.groundY, ZC.CFG.worldW, ZC.CFG.worldH - ZC.CFG.groundY);
+    c.fillStyle = P.groundTop;
+    c.fillRect(0, ZC.CFG.groundY, ZC.CFG.worldW, 4);
+    c.fillStyle = P.groundBand;
+    c.fillRect(0, ZC.CFG.groundY + 4, ZC.CFG.worldW, 10);
+    c.strokeStyle = P.groundLine;
+    c.lineWidth = 1;
+    for (let x = 0; x < ZC.CFG.worldW; x += 64) {
+      c.beginPath(); c.moveTo(x, ZC.CFG.groundY + 14); c.lineTo(x + 18, ZC.CFG.worldH); c.stroke();
     }
 
-    // Plataformas de acero con cinta de peligro
+    // Pasarelas de acero gastado con franja de aviso apagada
     ZC.map.platforms.forEach(function (p) {
-      ZC.ctx.fillStyle = "#2c3548";
-      ZC.ctx.fillRect(p.x, p.y, p.w, p.h);
-      ZC.ctx.fillStyle = "#3d4a62";
-      ZC.ctx.fillRect(p.x, p.y, p.w, 5);
+      c.fillStyle = P.steelShade;
+      c.fillRect(p.x + 3, p.y + p.h, p.w - 6, 5);
+      c.fillStyle = P.steel;
+      c.fillRect(p.x, p.y, p.w, p.h);
+      c.fillStyle = P.steelTop;
+      c.fillRect(p.x, p.y, p.w, 4);
       for (let x = p.x; x < p.x + p.w; x += 16) {
-        ZC.ctx.fillStyle = ((x - p.x) / 16) % 2 < 1 ? "#f0c14b" : "#16181e";
-        ZC.ctx.fillRect(x, p.y + p.h - 5, 16, 5);
+        c.fillStyle = ((x - p.x) / 16) % 2 < 1 ? P.stripeA : P.stripeB;
+        c.fillRect(x, p.y + p.h - 4, Math.min(16, p.x + p.w - x), 4);
       }
-      ZC.ctx.fillStyle = "rgba(92,228,255,0.12)";
-      ZC.ctx.fillRect(p.x, p.y - 2, p.w, 2);
     });
 
     // Cajas de madera (cobertura)
-    ZC.map.crates.forEach(function (c) {
-      ZC.ctx.fillStyle = "#8a5a2b";
-      ZC.ctx.fillRect(c.x, c.y, c.w, c.h);
-      ZC.ctx.fillStyle = "#a66d34";
-      ZC.ctx.fillRect(c.x + 3, c.y + 3, c.w - 6, c.h - 6);
-      ZC.ctx.strokeStyle = "#5a3816";
-      ZC.ctx.lineWidth = 2;
-      ZC.ctx.strokeRect(c.x + 2, c.y + 2, c.w - 4, c.h - 4);
-      ZC.ctx.beginPath();
-      ZC.ctx.moveTo(c.x + 6, c.y + 6); ZC.ctx.lineTo(c.x + c.w - 6, c.y + c.h - 6);
-      ZC.ctx.moveTo(c.x + c.w - 6, c.y + 6); ZC.ctx.lineTo(c.x + 6, c.y + c.h - 6);
-      ZC.ctx.stroke();
-      ZC.ctx.fillStyle = "#c4a36a";
-      ZC.ctx.fillRect(c.x + 4, c.y + 4, 6, 6);
-      ZC.ctx.fillRect(c.x + c.w - 10, c.y + 4, 6, 6);
-      ZC.ctx.fillRect(c.x + 4, c.y + c.h - 10, 6, 6);
-      ZC.ctx.fillRect(c.x + c.w - 10, c.y + c.h - 10, 6, 6);
+    ZC.map.crates.forEach(function (cr) {
+      c.fillStyle = "#6e4a2a";
+      c.fillRect(cr.x, cr.y, cr.w, cr.h);
+      c.fillStyle = "#8a6238";
+      c.fillRect(cr.x + 3, cr.y + 3, cr.w - 6, cr.h - 6);
+      c.strokeStyle = "#47301a";
+      c.lineWidth = 2;
+      c.strokeRect(cr.x + 2, cr.y + 2, cr.w - 4, cr.h - 4);
+      c.beginPath();
+      c.moveTo(cr.x + 6, cr.y + 6); c.lineTo(cr.x + cr.w - 6, cr.y + cr.h - 6);
+      c.moveTo(cr.x + cr.w - 6, cr.y + 6); c.lineTo(cr.x + 6, cr.y + cr.h - 6);
+      c.stroke();
+      c.fillStyle = "#a88f62";
+      c.fillRect(cr.x + 4, cr.y + 4, 6, 6);
+      c.fillRect(cr.x + cr.w - 10, cr.y + 4, 6, 6);
+      c.fillRect(cr.x + 4, cr.y + cr.h - 10, 6, 6);
+      c.fillRect(cr.x + cr.w - 10, cr.y + cr.h - 10, 6, 6);
     });
   }
 
@@ -163,14 +170,14 @@
       ZC.ctx.save();
       ZC.ctx.translate(L.x, L.y + bob);
       if (L.type === "health") {
-        ZC.ctx.fillStyle = "#14914d"; ZC.ctx.fillRect(-10, -10, 20, 20);
-        ZC.ctx.fillStyle = "#7dffb0"; ZC.ctx.fillRect(-3, -8, 6, 16); ZC.ctx.fillRect(-8, -3, 16, 6);
+        ZC.ctx.fillStyle = "#4d6136"; ZC.ctx.fillRect(-10, -10, 20, 20);
+        ZC.ctx.fillStyle = "#efe6cf"; ZC.ctx.fillRect(-3, -8, 6, 16); ZC.ctx.fillRect(-8, -3, 16, 6);
       } else if (L.type === "ammo") {
-        ZC.ctx.fillStyle = "#d7a33a"; ZC.ctx.fillRect(-11, -8, 22, 16);
+        ZC.ctx.fillStyle = "#b98a3a"; ZC.ctx.fillRect(-11, -8, 22, 16);
         ZC.ctx.fillStyle = "#5a3d10"; ZC.ctx.fillRect(-8, -5, 5, 10); ZC.ctx.fillRect(3, -5, 5, 10);
       } else {
-        ZC.ctx.fillStyle = "#3d6d88"; ZC.ctx.fillRect(-12, -7, 24, 14);
-        ZC.ctx.fillStyle = "#9be7ff"; ZC.ctx.fillRect(4, -4, 10, 4);
+        ZC.ctx.fillStyle = "#4f5440"; ZC.ctx.fillRect(-12, -7, 24, 14);
+        ZC.ctx.fillStyle = "#d9c79a"; ZC.ctx.fillRect(4, -4, 10, 4);
       }
       ZC.ctx.restore();
     });
@@ -199,12 +206,12 @@
       // Nombre y vida, por encima del casco
       ZC.ctx.font = "bold 11px Segoe UI, sans-serif";
       ZC.ctx.textAlign = "center";
-      ZC.ctx.fillStyle = a.isPlayer ? "#7af0ff" : "#e8eef8";
+      ZC.ctx.fillStyle = a.isPlayer ? "#f0d79a" : "#ece4d2";
       ZC.ctx.fillText(a.name, 0, -76);
       const bw = 28, ratio = ZC.util.clamp(a.hp / a.maxHp, 0, 1);
       ZC.ctx.fillStyle = "rgba(0,0,0,0.45)";
       ZC.ctx.fillRect(-bw / 2, -72, bw, 3);
-      ZC.ctx.fillStyle = ratio > 0.4 ? "#3ee089" : "#ff5d7a";
+      ZC.ctx.fillStyle = ratio > 0.4 ? "#8fb35a" : "#c8553d";
       ZC.ctx.fillRect(-bw / 2, -72, bw * ratio, 3);
 
       ZC.ctx.restore();
@@ -248,14 +255,14 @@
 
   ZC.drawZoneInsideHint = function () {
     ZC.ctx.save();
-    ZC.ctx.strokeStyle = "rgba(92,228,255,0.35)";
+    ZC.ctx.strokeStyle = "rgba(232,206,150,0.35)";
     ZC.ctx.lineWidth = 3;
     ZC.ctx.setLineDash([10, 8]);
     ZC.ctx.beginPath();
     ZC.ctx.arc(ZC.zone.cx, ZC.zone.cy, Math.max(8, ZC.zone.r), 0, Math.PI * 2);
     ZC.ctx.stroke();
     if (ZC.zone.shrinking) {
-      ZC.ctx.strokeStyle = "rgba(255,176,32,0.4)";
+      ZC.ctx.strokeStyle = "rgba(205,128,60,0.45)";
       ZC.ctx.beginPath();
       ZC.ctx.arc(ZC.zone.tx, ZC.zone.ty, Math.max(8, ZC.zone.tr), 0, Math.PI * 2);
       ZC.ctx.stroke();
@@ -270,18 +277,15 @@
     ZC.ctx.beginPath();
     ZC.ctx.rect(ZC.cam.x - 40, ZC.cam.y - 40, ZC.viewW + 80, ZC.viewH + 80);
     ZC.ctx.arc(ZC.zone.cx, ZC.zone.cy, Math.max(8, ZC.zone.r), 0, Math.PI * 2, true);
-    ZC.ctx.fillStyle = "rgba(48, 12, 64, 0.42)";
+    ZC.ctx.fillStyle = "rgba(70, 30, 18, 0.40)";
     ZC.ctx.fill("evenodd");
     ZC.ctx.restore();
-    // Borde brillante
+    // Borde de la zona (sin brillo)
     ZC.ctx.beginPath();
     ZC.ctx.arc(ZC.zone.cx, ZC.zone.cy, Math.max(8, ZC.zone.r), 0, Math.PI * 2);
-    ZC.ctx.strokeStyle = "rgba(92,228,255,0.75)";
+    ZC.ctx.strokeStyle = "rgba(236,200,130,0.78)";
     ZC.ctx.lineWidth = 3;
-    ZC.ctx.shadowColor = "#5ce4ff";
-    ZC.ctx.shadowBlur = 12;
     ZC.ctx.stroke();
-    ZC.ctx.shadowBlur = 0;
   }
 
   ZC.roundRect = function (c, x, y, w, h, r) {
@@ -306,28 +310,28 @@
     // Vida y arma (abajo-centro / izquierda)
     if (ZC.player) {
       const hx = pad, hy = ZC.viewH - 86;
-      ZC.ctx.fillStyle = "rgba(8,14,26,0.72)";
+      ZC.ctx.fillStyle = "rgba(22,18,12,0.74)";
       ZC.roundRect(ZC.ctx, hx, hy, 280, 70, 8); ZC.ctx.fill();
-      ZC.ctx.strokeStyle = "rgba(92,228,255,0.25)"; ZC.ctx.lineWidth = 1;
+      ZC.ctx.strokeStyle = "rgba(214,190,140,0.28)"; ZC.ctx.lineWidth = 1;
       ZC.ctx.stroke();
-      ZC.ctx.fillStyle = "#93a6bd";
+      ZC.ctx.fillStyle = "#b3a68a";
       ZC.ctx.font = "11px Segoe UI, sans-serif";
       ZC.ctx.textAlign = "left";
       ZC.ctx.fillText(ZC.player.dead ? "ELIMINADO — espectando" : "VIDA", hx + 12, hy + 18);
-      ZC.ctx.fillStyle = "#1a2230";
+      ZC.ctx.fillStyle = "#2b251c";
       ZC.ctx.fillRect(hx + 12, hy + 26, 256, 10);
       const hr = ZC.util.clamp(ZC.player.hp / ZC.player.maxHp, 0, 1);
-      ZC.ctx.fillStyle = hr > 0.35 ? "#3ee089" : "#ff5d7a";
+      ZC.ctx.fillStyle = hr > 0.35 ? "#8fb35a" : "#c8553d";
       ZC.ctx.fillRect(hx + 12, hy + 26, 256 * hr, 10);
       const w = ZC.WEAPONS[ZC.player.gun.current];
       const clip = ZC.player.gun[ZC.player.gun.current];
       ZC.ctx.fillStyle = w.color;
       ZC.ctx.font = "bold 16px Segoe UI, sans-serif";
       ZC.ctx.fillText(w.name, hx + 12, hy + 56);
-      ZC.ctx.fillStyle = "#e8f4ff";
+      ZC.ctx.fillStyle = "#efe6d2";
       ZC.ctx.fillText(clip.mag + " / " + clip.reserve, hx + 118, hy + 56);
       if (ZC.player.gun.reloading > 0) {
-        ZC.ctx.fillStyle = "#ffb020";
+        ZC.ctx.fillStyle = "#d99a3a";
         ZC.ctx.font = "12px Segoe UI, sans-serif";
         ZC.ctx.fillText("RECARGANDO", hx + 188, hy + 56);
       }
@@ -338,15 +342,15 @@
     const ss = Math.floor(ZC.match.elapsed % 60);
     const time = (mm < 10 ? "0" : "") + mm + ":" + (ss < 10 ? "0" : "") + ss;
     ZC.ctx.textAlign = "center";
-    ZC.ctx.fillStyle = "rgba(8,14,26,0.7)";
+    ZC.ctx.fillStyle = "rgba(22,18,12,0.72)";
     ZC.roundRect(ZC.ctx, ZC.viewW / 2 - 150, 12, 300, 52, 8); ZC.ctx.fill();
-    ZC.ctx.fillStyle = "#5ce4ff";
+    ZC.ctx.fillStyle = "#e0b25c";
     ZC.ctx.font = "bold 20px Segoe UI, sans-serif";
     ZC.ctx.fillText(time, ZC.viewW / 2 - 70, 36);
-    ZC.ctx.fillStyle = "#e8f4ff";
+    ZC.ctx.fillStyle = "#efe6d2";
     ZC.ctx.font = "bold 16px Segoe UI, sans-serif";
     ZC.ctx.fillText(ZC.match.alive + " vivos", ZC.viewW / 2 + 70, 36);
-    ZC.ctx.fillStyle = ZC.zone.shrinking ? "#ffb020" : "#93a6bd";
+    ZC.ctx.fillStyle = ZC.zone.shrinking ? "#d99a3a" : "#b3a68a";
     ZC.ctx.font = "11px Segoe UI, sans-serif";
     ZC.ctx.fillText(ZC.zoneLabel() + "  ·  DPS fuera " + Math.round(ZC.zone.dps), ZC.viewW / 2, 54);
 
@@ -357,17 +361,17 @@
     }).slice(0, 3);
     ZC.ctx.textAlign = "left";
     const tx = ZC.viewW - 210, ty = 12;
-    ZC.ctx.fillStyle = "rgba(8,14,26,0.72)";
+    ZC.ctx.fillStyle = "rgba(22,18,12,0.74)";
     ZC.roundRect(ZC.ctx, tx, ty, 198, 92, 8); ZC.ctx.fill();
-    ZC.ctx.fillStyle = "#ffb020";
+    ZC.ctx.fillStyle = "#d99a3a";
     ZC.ctx.font = "bold 11px Segoe UI, sans-serif";
     ZC.ctx.fillText("TOP 3", tx + 12, ty + 18);
     ranked.forEach(function (a, i) {
-      ZC.ctx.fillStyle = a.dead ? "#66758a" : a.color;
+      ZC.ctx.fillStyle = a.dead ? "#7a705e" : a.color;
       ZC.ctx.font = "13px Segoe UI, sans-serif";
       ZC.ctx.fillText((i + 1) + ". " + a.name + (a.dead ? " ✕" : ""), tx + 12, ty + 38 + i * 18);
       ZC.ctx.textAlign = "right";
-      ZC.ctx.fillStyle = "#e8f4ff";
+      ZC.ctx.fillStyle = "#efe6d2";
       ZC.ctx.fillText(String(a.kills), tx + 186, ty + 38 + i * 18);
       ZC.ctx.textAlign = "left";
     });
@@ -376,9 +380,9 @@
     ZC.ctx.textAlign = "left";
     ZC.killfeed.forEach(function (k, i) {
       ZC.ctx.globalAlpha = ZC.util.clamp(k.life / 1.2, 0, 1);
-      ZC.ctx.fillStyle = "rgba(8,14,26,0.55)";
+      ZC.ctx.fillStyle = "rgba(22,18,12,0.58)";
       ZC.ctx.fillRect(16, 80 + i * 22, Math.min(360, 20 + k.text.length * 7.2), 20);
-      ZC.ctx.fillStyle = "#d5e6f5";
+      ZC.ctx.fillStyle = "#e6dcc6";
       ZC.ctx.font = "12px Segoe UI, sans-serif";
       ZC.ctx.fillText(k.text, 24, 94 + i * 22);
     });
@@ -386,35 +390,35 @@
 
     // Minimapa
     const mw = 176, mh = 64, mx = ZC.viewW - 210, my = 112;
-    ZC.ctx.fillStyle = "rgba(8,14,26,0.7)";
+    ZC.ctx.fillStyle = "rgba(22,18,12,0.72)";
     ZC.roundRect(ZC.ctx, mx, my, mw, mh, 6); ZC.ctx.fill();
     const sx = (mw - 12) / ZC.CFG.worldW, sy = (mh - 12) / ZC.CFG.worldH;
     ZC.ctx.save();
     ZC.ctx.beginPath(); ZC.roundRect(ZC.ctx, mx, my, mw, mh, 6); ZC.ctx.clip();
-    ZC.ctx.fillStyle = "rgba(92,228,255,0.12)";
+    ZC.ctx.fillStyle = "rgba(224,178,92,0.16)";
     ZC.ctx.beginPath();
     ZC.ctx.arc(mx + 6 + ZC.zone.cx * sx, my + 6 + ZC.zone.cy * sy, ZC.zone.r * sx, 0, Math.PI * 2);
     ZC.ctx.fill();
     ZC.actors.forEach(function (a) {
       if (a.dead) return;
-      ZC.ctx.fillStyle = a.isPlayer ? "#7af0ff" : a.color;
+      ZC.ctx.fillStyle = a.isPlayer ? "#f0d79a" : a.color;
       ZC.ctx.fillRect(mx + 6 + a.x * sx - 2, my + 6 + a.y * sy - 2, 4, 4);
     });
     ZC.ctx.restore();
-    ZC.ctx.strokeStyle = "rgba(92,228,255,0.25)";
+    ZC.ctx.strokeStyle = "rgba(214,190,140,0.28)";
     ZC.roundRect(ZC.ctx, mx, my, mw, mh, 6); ZC.ctx.stroke();
 
     // Aviso fuera de zona
     if (ZC.player && !ZC.player.dead && !ZC.inZone(ZC.player.x, ZC.player.y - 16)) {
       ZC.ctx.textAlign = "center";
-      ZC.ctx.fillStyle = "rgba(255,93,122,0.9)";
+      ZC.ctx.fillStyle = "rgba(214,96,64,0.95)";
       ZC.ctx.font = "bold 22px Segoe UI, sans-serif";
       ZC.ctx.fillText("¡VUELVE A LA ZONA!", ZC.viewW / 2, ZC.viewH - 110);
     }
 
     if (ZC.state === "playing" && ZC.player && ZC.player.dead && !ZC.match.winner) {
       ZC.ctx.textAlign = "center";
-      ZC.ctx.fillStyle = "rgba(255,255,255,0.8)";
+      ZC.ctx.fillStyle = "rgba(239,230,210,0.85)";
       ZC.ctx.font = "16px Segoe UI, sans-serif";
       ZC.ctx.fillText("Espectando el cierre · puesto provisional #" + (ZC.match.playerPlace || ZC.match.alive + 1), ZC.viewW / 2, 92);
     }

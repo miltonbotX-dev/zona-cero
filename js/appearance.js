@@ -24,12 +24,12 @@
     var armor = (color && String(color).charAt(0) === "#") ? color : "#c45a4a";
     return {
       id: "bot",
-      suit: "#243044",
-      suitDark: "#1b2230",
+      suit: "#2f3026",
+      suitDark: "#1f2019",
       armor: armor,
-      trim: "#d7e2f0",
-      visor: "#f2c14b",
-      pack: "#151c2a",
+      trim: "#d9cfb8",
+      visor: "#c9a35a",
+      pack: "#22231b",
       skin: "#c4a484",
       bulk: 1,
       helm: "helmet"
@@ -72,7 +72,7 @@
       var suit = hurt ? "#f4f7ff" : pal.suit;
       var suitDark = hurt ? "#ffffff" : pal.suitDark;
       var gunId = (actor.gun && actor.gun.current) || "rifle";
-      var weapon = (ZC.WEAPONS && ZC.WEAPONS[gunId]) || { color: "#7ad7ff", id: gunId };
+      var weapon = (ZC.WEAPONS && ZC.WEAPONS[gunId]) || { color: "#cdbb8a", id: gunId };
 
       ctx.save();
 
@@ -169,12 +169,7 @@
       ctx.arc(0, -54, 6.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = pal.visor;
-      if (actor.isPlayer) {
-        ctx.shadowColor = pal.visor;
-        ctx.shadowBlur = 8;
-      }
       ctx.fillRect(-4.5, -55, 9, 2.6);
-      ctx.shadowBlur = 0;
       return;
     }
     var hr = pal.helm === "heavy" ? 9.4 : 8.2;
@@ -187,12 +182,7 @@
     ctx.arc(0, -58, hr - 2.4, Math.PI, 0);
     ctx.fill();
     ctx.fillStyle = pal.visor;
-    if (actor.isPlayer) {
-      ctx.shadowColor = pal.visor;
-      ctx.shadowBlur = 10;
-    }
     ctx.fillRect(-6, -56.5, 12, 3.4);
-    ctx.shadowBlur = 0;
     if (pal.helm === "heavy") {
       ctx.fillStyle = pal.trim;
       ctx.fillRect(-7, -66, 14, 3);
@@ -220,15 +210,15 @@
     ctx.beginPath();
     ctx.arc(12, 1, 2.3, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#222833";
+    ctx.fillStyle = "#2a2822";
     ctx.fillRect(13, -2.4, 16, 5);
-    ctx.fillStyle = weapon.color || "#7ad7ff";
+    ctx.fillStyle = weapon.color || "#cdbb8a";
     ctx.fillRect(27, -1.5, 8, 3);
     if (weapon.id === "shotgun") {
-      ctx.fillStyle = "#222833";
+      ctx.fillStyle = "#2a2822";
       ctx.fillRect(15, 2.2, 11, 2.6);
     } else {
-      ctx.fillStyle = "#3a4252";
+      ctx.fillStyle = "#45413a";
       ctx.fillRect(18, 2.2, 4, 4);
     }
     if (actor.flash > 0) {
@@ -243,13 +233,13 @@
   ZC.Appearance.register({
     id: "operativo",
     name: "Operativo",
-    blurb: "Casco, visor cian y hombreras.",
-    suit: "#2c3a4e",
-    suitDark: "#1a2433",
-    armor: "#5b738f",
-    trim: "#7af0ff",
-    visor: "#7af0ff",
-    pack: "#172033",
+    blurb: "Casco oliva, visor ámbar y hombreras.",
+    suit: "#3a3f2e",
+    suitDark: "#252a1d",
+    armor: "#5f6b48",
+    trim: "#c9b98a",
+    visor: "#d9a54e",
+    pack: "#2a2c20",
     skin: "#c4a484",
     bulk: 1,
     helm: "helmet"
@@ -258,12 +248,12 @@
     id: "sombra",
     name: "Sombra",
     blurb: "Capucha y silueta más estrecha.",
-    suit: "#2a1c36",
-    suitDark: "#160e1e",
-    armor: "#5a3d72",
-    trim: "#c084fc",
-    visor: "#e9d5ff",
-    pack: "#140c1a",
+    suit: "#2b2a27",
+    suitDark: "#171614",
+    armor: "#4a4640",
+    trim: "#9a8f7c",
+    visor: "#b89a66",
+    pack: "#1a1917",
     skin: "#b9927a",
     bulk: 0.9,
     helm: "hood"
@@ -271,12 +261,12 @@
   ZC.Appearance.register({
     id: "pesado",
     name: "Pesado",
-    blurb: "Placas anchas y visor ámbar.",
+    blurb: "Placas anchas y visor arena.",
     suit: "#3d3428",
     suitDark: "#241c14",
     armor: "#8d6b3c",
-    trim: "#ffb020",
-    visor: "#ffe08a",
+    trim: "#cf963c",
+    visor: "#e6c27a",
     pack: "#2a2118",
     skin: "#c4a484",
     bulk: 1.2,

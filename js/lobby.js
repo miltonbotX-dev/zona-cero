@@ -129,7 +129,7 @@
     if (actor.isPlayer) {
       actor.name = p.name || "Tú";
       var look = ZC.Appearance && ZC.Appearance.get(p.look);
-      actor.color = (look && look.trim) || "#7af0ff";
+      actor.color = (look && look.trim) || "#c9b98a";
       actor.accent = actor.color;
       actor.maxHp = p.hp || 100;
       actor.hp = actor.maxHp;
@@ -302,7 +302,7 @@
     ZC.Appearance.draw({
       isPlayer: true,
       look: p.look,
-      color: "#7af0ff",
+      color: "#c9b98a",
       grounded: true,
       vx: 40,
       walkPhase: t * 8,

@@ -9,11 +9,11 @@ Prototipo jugable de shooter táctico en vista lateral, estilo battle royale loc
 | Archivo | Responsabilidad | Qué editar ahí |
 | --- | --- | --- |
 | `index.html` | Cáscara: canvas, menú, lobby, resultado, joysticks | Textos de las pantallas |
-| `css/style.css` | Colores de UI, lobby, overlays, táctil, regla `[hidden]` | Diseño de menús y botones |
+| `css/style.css` | Colores de UI (paleta tierra en `:root`), lobby, overlays, táctil, regla `[hidden]` | Diseño de menús y botones |
 | `js/zc.js` | Namespace `ZC` / `ZonaCero`, utilidades, estado compartido | Casi nunca (es el cimiento) |
 | `js/config.js` | Números: gravedad, salto, velocidad, cantidad de bots | Sensación de movimiento |
 | `js/weapons.js` | Fichas del fusil y la escopeta | Daño, cadencia, cargador |
-| `js/maps.js` | Mapas (plataformas, cajas, spawns, loot) | Diseñar o añadir un mapa |
+| `js/maps.js` | Mapas (plataformas, cajas, spawns, loot, imagen de fondo) | Diseñar o añadir un mapa |
 | `js/entities.js` | Crear jugadores, bots, partículas y botín | Cómo nace un personaje o un item |
 | `js/physics.js` | Suelo, cajas, plataformas, salto y doble salto | Colisiones y salto |
 | `js/combat.js` | Disparo, recarga, balas, daño, muerte | Reglas de combate |
@@ -23,10 +23,11 @@ Prototipo jugable de shooter táctico en vista lateral, estilo battle royale loc
 | `js/input.js` | Teclado, ratón, joysticks y layout táctil | Cambiar teclas o arrastre de botones |
 | `js/audio.js` | Sonidos sintéticos y silencio | Tonos |
 | `js/appearance.js` | Forma y aspectos del personaje | Casco, torso, un aspecto nuevo |
-| `js/render.js` | Dibujo del mundo y del HUD | Estética del escenario |
+| `js/render.js` | Dibujo del fondo con imagen, del mundo y del HUD (`ZC.PALETTE`) | Estética del escenario |
 | `js/ui.js` | Mostrar/ocultar menú, lobby y resultado | Registrar pantallas |
 | `js/lobby.js` | Sala, perfil, mochila, mapa y ajustes | Flujo del lobby |
 | `js/game.js` | Partida: inicio, victoria/derrota, bucle | Flujo general |
+| `assets/maps/` | Imágenes de fondo de cada mapa (WebP) | Cambiar el paisaje de un mapa |
 
 Más detalle técnico en `ARCHITECTURE.md`.
 
@@ -51,10 +52,10 @@ El orden está en `index.html` y también en `ZC.SCRIPT_ORDER` (`js/zc.js`):
 ## Qué cambiar según lo que quieras
 
 - **Armas:** `js/weapons.js`. Para añadir un arma: `ZC.registerWeapon(...)` y ponla en la mochila del lobby o en el loot.
-- **Mapas:** `js/maps.js`. Copia un mapa existente (`platforms`, `crates`, `spawns`, `silos`, `lootSpots`, `blurb`), `ZC.Maps.register("otro", def)`. El lobby lo lista solo. Hoy el decorado es dibujado a mano; más adelante se pueden usar imágenes de fondo o teselas (ver `ARCHITECTURE.md`).
+- **Mapas:** `js/maps.js`. Copia un mapa existente (`platforms`, `crates`, `spawns`, `silos`, `lootSpots`, `blurb`, `backgroundImage`, `bgFallback`), `ZC.Maps.register("otro", def)`. El lobby lo lista solo. El paisaje es una imagen en `assets/maps/`; las pasarelas y cajas se dibujan encima (ver `ARCHITECTURE.md`).
 - **Aspectos:** `js/appearance.js` → `ZC.Appearance.register`.
 - **Controles de teclado:** `js/input.js` → `ZC.Input.bindings`. El layout táctil se guarda con el perfil.
-- **Diseño / HUD:** `css/style.css` y `js/render.js`. No quites `[hidden] { display: none !important; }`: si no, el panel de derrota se queda encima del juego.
+- **Diseño / HUD:** `css/style.css` (variables de color en `:root`) y `js/render.js` (`ZC.PALETTE`). Estilo actual: tierra, oliva, óxido y arena, sin neón. No quites `[hidden] { display: none !important; }`: si no, el panel de derrota se queda encima del juego.
 - **Bots y zona:** `js/bots.js`, `js/config.js` (`botCount`), `js/zone.js`. En el lobby también se elige cuántos rivales hay.
 
 ## Trabajo en paralelo
@@ -67,13 +68,20 @@ Regla práctica: **cada persona un módulo**. Ejemplo: uno en `weapons.js`, otro
 node tests/smoke.js
 ```
 
-Comprueban el orden de los archivos, que cada JS parsea, que no hay CDN, el arreglo de overlays `[hidden]`, la lógica de salto, disparo, cobertura, zona, victoria/derrota y reinicio, y el lobby (aspectos y mapas).
+Comprueban el orden de los archivos, que cada JS parsea, que no hay CDN, el arreglo de overlays `[hidden]`, la lógica de salto, disparo, cobertura, zona, victoria/derrota y reinicio, el lobby (aspectos y mapas), que cada mapa tiene su imagen de fondo y que ya no queda el cian neón.
+
+En navegador real (opcional, necesita `uv` y Chrome):
+
+```bash
+python3 -m http.server 8765 --bind 127.0.0.1 &
+uv run --with playwright python tests/browser.py
+```
 
 ## Limitaciones
 
 - Un jugador, bots locales, sin red y sin anuncios.
 - Audio sintético.
-- El escenario se dibuja con código (aún no hay sprites ni imágenes de mapa) para que la carpeta viaje sola.
+- Los personajes y las pasarelas se dibujan con código; solo el paisaje de fondo es imagen. La carpeta sigue viajando sola (las imágenes van en `assets/maps/`).
 - No hay empaquetador.
 
 ---

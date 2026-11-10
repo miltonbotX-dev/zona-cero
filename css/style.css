@@ -410,6 +410,7 @@
     }
     #boot-screen[data-phase="loading"] .boot-brand,
     #boot-screen[data-phase="ready"] .boot-brand { transform: translateY(-28px) scale(0.86); }
+    #boot-screen[data-phase="ready"] #boot-fill { transition: none; } /* 100 % se ve lleno al instante */
     #boot-screen[data-phase="loading"] .boot-load,
     #boot-screen[data-phase="ready"] .boot-load { opacity: 1; }
     @keyframes boot-in {

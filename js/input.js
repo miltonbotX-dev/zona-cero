@@ -163,7 +163,9 @@
   ZC.enableTouch = function () {
     ZC.touch.enabled = true;
     const ui = document.getElementById("touch-ui");
-    if (ui) { ui.classList.add("show"); ui.setAttribute("aria-hidden", "false"); }
+    // En el lobby no se muestran (se verían detrás de la sala); ZC.closeLobby los
+    // muestra al empezar la partida porque ZC.touch.enabled ya quedó en true.
+    if (ui && !ZC.lobbyOpen) { ui.classList.add("show"); ui.setAttribute("aria-hidden", "false"); }
     if (ZC.canvas) ZC.canvas.style.cursor = "default";
     if (ZC.applyControlLayout) ZC.applyControlLayout();
   }

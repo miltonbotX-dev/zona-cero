@@ -287,6 +287,9 @@ with sync_playwright() as p:
     # force-enable touch UI to measure controls even under the warning
     page.evaluate("() => { if (window.ZC && ZC.enableTouch) ZC.enableTouch(); }")
     page.wait_for_timeout(100)
+    ok(not js_state(page).get("touchShow"), "en el lobby los controles táctiles no se ven detrás de la sala")
+    page.evaluate("() => { ZC.closeLobby(); }")
+    page.wait_for_timeout(100)
     st = js_state(page)
     ok(st.get("touchShow"), "controles táctiles se activan (clase show)")
     visible_controls = [j for j in st.get("joys") or [] if j["visible"] and j["w"] >= 20 and j["h"] >= 20]

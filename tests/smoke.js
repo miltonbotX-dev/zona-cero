@@ -951,6 +951,17 @@ function trackingCtx() {
   ok(ZC.lobbyLastMuzzle && ZC.lobbyLastMuzzle.x > 480 * 0.36 + 100, "la estela de muestra del lobby sale de la boca del arma", JSON.stringify(ZC.lobbyLastMuzzle));
   ZC.lobbyPreviewT = prevT;
 })();
+(function () {
+  // v1.6: tocar la pantalla en el lobby no deja los joysticks dibujados detrás de la sala
+  const ui = getEl("touch-ui");
+  ui.classList.remove("show");
+  ZC.openLobby();
+  ZC.enableTouch();
+  ok(!ui.classList.contains("show"), "en el lobby los controles táctiles quedan ocultos");
+  ZC.closeLobby();
+  ok(ui.classList.contains("show"), "al salir del lobby aparecen (el toque ya los activó)");
+  ZC.touch.enabled = false; ui.classList.remove("show");
+})();
 // Sin emojis en la interfaz
 const emojiRe = /[\u{1F000}-\u{1FAFF}\u{FE0F}\u{2705}\u{274C}\u{2728}]/u;
 const uiFiles = ["index.html", "css/style.css"].concat(expected);

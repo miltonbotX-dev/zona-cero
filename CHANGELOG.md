@@ -11,9 +11,10 @@ Construida sobre la versión que editó Amilthon: se mantienen su nombre «ZCero
 - Los mapas se siguen bajando mientras corren los videos, así la carga suele ser corta. La intro se empieza a bajar mientras corre el video del creador.
 - Íconos en lugar de texto (SVG dibujados dentro de `index.html`, sin internet, sin emojis ni fuentes de íconos): Inventario, Aspecto y Ajustes del lobby (con un rótulo pequeño debajo), Iniciar (triángulo de play grande), atrás, engranaje (ya no puede salir como emoji), cerrar panel (X), silencio (parlante que se tacha en rojo), pantalla completa, Jugar y Controles del menú, Otra vez y Menú al final, Listo y Restaurar al mover controles, Mover y Restaurar en Ajustes, Dejar/Llevar (menos/más) en Inventario, y Salto (doble flecha), Recargar y Cambiar arma en la partida. Todos con `aria-label` y `title`.
 - Lobby más pulido: esquinas redondeadas, sombra suave, el botón del panel abierto se marca en ámbar, estados al pasar el dedo o el ratón y al presionar, deslizadores en ámbar y miniatura de fondo en cada mapa de la lista. Se corrigieron estilos de letra que el navegador ignoraba (`font: … inherit`).
+- Arreglado: en el celular, al tocar el lobby se veían los joysticks y botones de la partida detrás de la sala. Ahora solo aparecen al empezar la partida.
 - Barra del navegador en Android: verde oliva del logo (`#4f5c42`) en lugar de «green».
 - `index.html` pide todo con `?v=1.6.0`.
-- Pruebas: 327 de humo (`node tests/smoke.js`: videos en orden, sonido tras el toque, Saltar, video bloqueado, trabado, con error o ausente, íconos con nombre accesible) y 83 en navegador (`tests/browser.py`: los dos videos se reproducen, firma bien ubicada en 1280x720, 844x390 y 390x844, flujo completo sin tocar, íconos del lobby y panel).
+- Pruebas: 329 de humo (`node tests/smoke.js`: videos en orden, sonido tras el toque, Saltar, video bloqueado, trabado, con error o ausente, íconos con nombre accesible, joysticks ocultos en el lobby) y 84 en navegador (`tests/browser.py`: los dos videos se reproducen, firma bien ubicada en 1280x720, 844x390 y 390x844, flujo completo sin tocar, íconos del lobby y panel).
 
 ## 1.5.0 — entrada tipo PUBG Mobile y balas desde el cañón (10 nov 2026, America/Lima)
 

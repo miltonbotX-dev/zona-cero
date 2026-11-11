@@ -1,4 +1,4 @@
-/* Zona Cero — estilos de interfaz, overlays y controles táctiles.
+/* ZCero — estilos de interfaz, overlays y controles táctiles.
    El arreglo [hidden]{display:none!important} es obligatorio: .overlay usa display:flex
    y, sin esta regla, el panel de resultado queda visible encima del juego. */
 /* --- Presentación general: militar terroso al atardecer, sin recursos externos.
@@ -214,7 +214,7 @@
       width: 168px; margin: 0; padding: 2px 0; border: 0;
       border-bottom: 1px solid rgba(214, 190, 140, 0.45);
       background: transparent; color: var(--text);
-      font: 700 18px/1.2 inherit; letter-spacing: 0.06em; border-radius: 0;
+      font: 700 18px/1.2 "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif; letter-spacing: 0.06em; border-radius: 0;
     }
     .lobby-sub { margin: 4px 0 0; color: var(--amber); font-size: 12px; letter-spacing: 0.08em; }
     .lobby-top-actions { display: flex; gap: 8px; }
@@ -245,7 +245,7 @@
       width: 86px; min-height: 64px; cursor: pointer;
       border: 1px solid rgba(214, 190, 140, 0.3);
       background: rgba(28, 23, 16, 0.82); color: var(--text);
-      font: 700 11px/1.2 inherit; letter-spacing: 0.12em; text-transform: uppercase;
+      font: 700 11px/1.2 "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif; letter-spacing: 0.12em; text-transform: uppercase;
     }
     .lobby-map-card {
       position: absolute; right: 22px; bottom: 108px; width: 210px;
@@ -261,7 +261,7 @@
       position: absolute; right: 22px; bottom: 22px; z-index: 2;
       min-width: 210px; height: 72px; border: 0; cursor: pointer;
       background: linear-gradient(180deg, #d9a54e, #a8762e);
-      color: #241808; font: 800 18px/1 inherit; letter-spacing: 0.22em;
+      color: #241808; font: 800 18px/1 "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif; letter-spacing: 0.22em;
       text-transform: uppercase;
       box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
     }
@@ -450,4 +450,203 @@
       .lobby-stage { left: 24%; bottom: 13%; width: min(250px, 32vw); }
       .lobby-gear { left: 74%; bottom: 3%; min-width: 96px; padding: 6px 10px; }
       .lobby-gear strong { font-size: 13px; }
+    }
+
+    /* ---------------------------------------------------------------------
+       v1.6: íconos en lugar de texto, videos de entrada y lobby más pulido.
+       Los íconos son <svg class="ico"><use href="#i-..."/></svg> (dibujos en
+       index.html). Toman el color del texto: cambia "color" y cambia el ícono.
+       --------------------------------------------------------------------- */
+    .ico-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+    .ico {
+      width: 22px; height: 22px; display: block; flex: none; pointer-events: none;
+      fill: none; stroke: currentColor; stroke-width: 1.9;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+    button { -webkit-touch-callout: none; }
+    button:focus-visible, input:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+    button:active { transform: translateY(1px) scale(0.97); }
+
+    /* Botones principales: ícono + palabra corta. Secundarios: solo ícono redondo */
+    button.cta-ico { display: inline-flex; align-items: center; gap: 10px; padding: 12px 22px 12px 18px; border-radius: 10px; }
+    button.cta-ico .ico { width: 22px; height: 22px; }
+    button.round-ico {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 48px; height: 48px; padding: 0; border-radius: 50%; letter-spacing: 0;
+    }
+    button.ghost:hover { background: rgba(214, 190, 140, 0.08); border-color: rgba(214, 190, 140, 0.6); }
+    .actions { align-items: center; }
+
+    /* Silencio y pantalla completa */
+    .icon-btn { display: flex; align-items: center; justify-content: center; padding: 0; transition: background 0.15s ease, border-color 0.15s ease; }
+    .icon-btn:hover { background: rgba(48, 39, 26, 0.95); border-color: rgba(214, 190, 140, 0.5); }
+    .icon-btn .ico { width: 21px; height: 21px; }
+    #btn-mute.off::after { content: none; }
+    #btn-mute .ico-off, #btn-mute.off .ico-on { display: none; }
+    #btn-mute.off .ico-off { display: block; color: var(--rose); }
+    #btn-full { display: none; }
+    #app.in-match #btn-full { display: flex; }
+    #app.in-match .icon-btn .ico { width: 18px; height: 18px; }
+
+    /* Botones táctiles de la partida: íconos grandes */
+    .touch-btn { display: flex; align-items: center; justify-content: center; padding: 0; }
+    .touch-btn .ico { width: 46%; height: 46%; stroke-width: 2.2; }
+    #btn-swap .ico { width: 50%; height: 50%; }
+    .touch-btn:active { background: rgba(201, 150, 63, 0.35); transform: none; }
+
+    /* --- Lobby --- */
+    .lobby-top { right: 62px; padding: 12px 14px 28px; }
+    .lobby-id { gap: 12px; }
+    .lobby-icon {
+      display: flex; align-items: center; justify-content: center; padding: 0;
+      border-radius: 10px; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+    .lobby-icon:hover, .lobby-icon.on { border-color: rgba(217, 162, 74, 0.7); color: var(--amber); }
+    .lobby-badge { border-radius: 10px; }
+    .lobby-dock { gap: 8px; }
+    .lobby-dock button {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+      width: 76px; min-height: 64px; padding: 8px 4px 7px; border-radius: 12px;
+      border: 1px solid rgba(214, 190, 140, 0.26); border-top: 1px solid rgba(214, 190, 140, 0.26);
+      background: rgba(28, 23, 16, 0.84); color: var(--text);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+    .lobby-dock .ico { width: 26px; height: 26px; color: var(--amber); }
+    .dock-lab { font: 700 9px/1 "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .lobby-dock button:hover { background: rgba(48, 39, 26, 0.94); border-color: rgba(217, 162, 74, 0.55); }
+    .lobby-dock button.on { border-color: var(--amber); background: rgba(201, 150, 63, 0.18); }
+    .lobby-dock button.on .dock-lab { color: var(--text); }
+    .lobby-map-card {
+      border-radius: 12px; padding: 10px 40px 10px 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      transition: border-color 0.15s ease, filter 0.15s ease;
+    }
+    .lobby-map-card:hover { filter: brightness(1.08); }
+    .lobby-map-card .map-ico { position: absolute; right: 12px; top: 50%; margin-top: -11px; color: var(--amber); opacity: 0.9; }
+    .lobby-start {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      border-radius: 14px; padding: 0 22px;
+      background: linear-gradient(180deg, #e0ad55 0%, #b7832f 55%, #9c6c27 100%);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 236, 190, 0.45);
+      transition: filter 0.15s ease;
+    }
+    .lobby-start .ico { width: 30px; height: 30px; stroke-width: 1.6; }
+    .lobby-start:hover { filter: brightness(1.07); }
+    .lobby-start:active { transform: translateY(1px) scale(0.98); filter: brightness(0.95); }
+    .lobby-gear { border-radius: 0 10px 10px 0; transition: background 0.15s ease; }
+    .lobby-gear:hover { background: rgba(48, 39, 26, 0.92); }
+    .lobby-sheet { border-radius: 14px; padding: 12px 14px 14px; }
+    .lobby-sheet-head { padding-bottom: 8px; border-bottom: 1px solid rgba(214, 190, 140, 0.16); }
+    .sheet-x {
+      display: flex; align-items: center; justify-content: center; flex: none;
+      width: 38px; height: 38px; padding: 0; border-radius: 50%; cursor: pointer;
+      border: 1px solid rgba(214, 190, 140, 0.35); background: transparent; color: var(--text);
+    }
+    .sheet-x:hover { border-color: var(--amber); color: var(--amber); }
+    .sheet-x .ico { width: 18px; height: 18px; }
+    .look-chip, .map-card, .inv-card { border-radius: 10px; transition: border-color 0.15s ease, background-color 0.15s ease; }
+    .look-chip:hover, .map-card:hover, .inv-card:hover { border-color: rgba(217, 162, 74, 0.5); }
+    .map-card { background-size: cover; background-position: center; padding: 12px; }
+    button.mini.round-ico { width: 36px; height: 36px; border-radius: 50%; color: var(--text); }
+    button.mini.round-ico .ico { width: 18px; height: 18px; }
+    .inv-card.carried button.mini { border-color: rgba(200, 85, 61, 0.5); color: #e7b3a6; }
+    .inv-card:not(.carried) button.mini { border-color: rgba(155, 191, 94, 0.55); color: var(--safe); }
+    .lobby-sheet .actions { margin: 4px 0 6px; }
+    #layout-bar { border-radius: 12px; }
+    #layout-bar button.round-ico { width: 42px; height: 42px; }
+    @media (max-width: 800px) {
+      .lobby-start { width: 148px; height: 58px; gap: 8px; padding: 0 14px; }
+      .lobby-start .ico { width: 24px; height: 24px; }
+      .lobby-dock button { width: 66px; min-height: 56px; gap: 4px; }
+      .lobby-dock .ico { width: 23px; height: 23px; }
+    }
+    @media (max-height: 500px) {
+      .lobby-top { padding: 10px 12px 24px; }
+      .lobby-icon { width: 40px; height: 40px; }
+      .lobby-badge { width: 40px; height: 40px; }
+      .lobby-dock { left: calc(12px + var(--safe-l)); bottom: 14px; }
+      .lobby-map-card, .lobby-start { right: calc(12px + var(--safe-r)); }
+      .lobby-start { bottom: 14px; }
+      .lobby-map-card { bottom: 80px; }
+    }
+
+    /* --- Entrada con videos (js/boot.js) ---
+       data-phase: creator -> intro -> loading -> ready -> done */
+    .boot-film { position: absolute; inset: 0; display: none; }
+    #boot-screen[data-phase="creator"] .boot-film,
+    #boot-screen[data-phase="intro"] .boot-film { display: block; }
+    #boot-screen[data-phase="creator"] .boot-brand, #boot-screen[data-phase="intro"] .boot-brand,
+    #boot-screen[data-phase="creator"] .boot-load, #boot-screen[data-phase="intro"] .boot-load,
+    #boot-screen[data-phase="creator"] .boot-foot, #boot-screen[data-phase="intro"] .boot-foot { display: none; }
+    #boot-screen[data-phase="creator"]::before, #boot-screen[data-phase="intro"]::before { display: none; }
+    /* Fondo igual al gris del video del creador: así no se notan las franjas */
+    #boot-screen.boot[data-phase="creator"] { background: #3d3d3d; }
+    #boot-screen.boot[data-phase="intro"] { background: #000; }
+    .boot-video {
+      position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+      object-fit: contain; background: transparent; pointer-events: none;
+    }
+    /* Firma del creador: pequeña, abajo, bajo el murciélago (el dibujo llega
+       hasta ~84 % del alto del video). Se calcula sobre el alto real del video
+       (contain 16:9), así queda en su sitio en horizontal, retrato y PC. */
+    .boot-credit {
+      --vh: min(100%, 56.25vw);
+      position: absolute; left: 0; right: 0; margin: 0;
+      bottom: calc((100% - var(--vh)) / 2 + var(--vh) * 0.045);
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      color: #f1ece2; text-align: center; pointer-events: none;
+      opacity: 0; transform: translateY(6px);
+      transition: opacity 1.2s ease, transform 1.2s ease;
+    }
+    .boot-credit.on { opacity: 1; transform: none; }
+    .boot-credit-k {
+      font-size: 9px; letter-spacing: 0.5em; padding-left: 0.5em; text-transform: uppercase;
+      color: rgba(241, 236, 226, 0.6);
+    }
+    .boot-credit-name {
+      display: flex; align-items: center; gap: 12px;
+      font-size: 15px; font-weight: 600; letter-spacing: 0.42em; padding-left: 0.42em; text-transform: uppercase;
+    }
+    .boot-credit-name::before, .boot-credit-name::after {
+      content: ""; width: 26px; height: 1px; background: rgba(241, 236, 226, 0.45);
+    }
+    .boot-film-ctrl {
+      position: absolute; z-index: 2; display: flex; gap: 8px;
+      top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + var(--safe-r));
+    }
+    .boot-chip {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      height: 34px; min-width: 34px; padding: 0 9px; border-radius: 17px; cursor: pointer;
+      border: 1px solid rgba(241, 236, 226, 0.22); background: rgba(0, 0, 0, 0.38); color: #f1ece2;
+      font: 700 10px/1 "Segoe UI", Roboto, Arial, sans-serif; letter-spacing: 0.18em; text-transform: uppercase;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .boot-chip:hover { background: rgba(0, 0, 0, 0.55); border-color: rgba(241, 236, 226, 0.45); }
+    .boot-chip .ico { width: 16px; height: 16px; }
+    .boot-skip { padding: 0 13px 0 11px; }
+    .boot-skip span { padding-left: 0.18em; }
+    #boot-sound .ico-off, #boot-sound.off .ico-on { display: none; }
+    #boot-sound.off .ico-off { display: block; }
+    .boot-hint {
+      position: absolute; left: 50%; top: 50%; margin: -36px 0 0 -36px;
+      width: 72px; height: 72px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(241, 236, 226, 0.35); color: #f1ece2;
+      animation: boot-pulse 1.4s ease-in-out infinite;
+    }
+    .boot-hint .ico { width: 30px; height: 30px; margin-left: 4px; }
+    @media (max-height: 500px) {
+      .boot-credit-name { font-size: 13px; gap: 10px; }
+      .boot-credit-name::before, .boot-credit-name::after { width: 18px; }
+      .boot-credit-k { font-size: 8px; }
+      .boot-film-ctrl { top: calc(10px + env(safe-area-inset-top, 0px)); }
+    }
+    input[type="range"] { accent-color: var(--accent); }
+    @media (max-height: 500px) {
+      .lobby-name { font-size: 16px; width: 150px; }
+    }
+    /* En retrato el video queda bajo y angosto: la firma va justo debajo del video */
+    @media (orientation: portrait) {
+      .boot-credit { bottom: calc((100% - var(--vh)) / 2 - 58px); }
     }

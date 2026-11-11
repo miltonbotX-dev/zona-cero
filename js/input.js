@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — entrada PC y táctil
+   ZCero — entrada PC y táctil
    Contrato: Teclado/ratón y joysticks Pointer Events. ZC.Input.bindings define las teclas actuales. Expone readPlayerInput y bindInput.
    Depende de: js/zc.js  (en runtime llama ZC.startMatch, ZC.toggleMute, ZC.unlockAudio)
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.

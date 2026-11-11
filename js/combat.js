@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — combate
+   ZCero — combate
    Contrato: Disparo, recarga, proyectiles, daño, muerte (suelta loot) y recolección. Llama ZC.checkWinner / ZC.recountAlive definidos en game.js.
    Depende de: js/zc.js, js/weapons.js, js/entities.js, js/maps.js
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.

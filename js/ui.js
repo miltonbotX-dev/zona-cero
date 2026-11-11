@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — overlays DOM
+   ZCero — overlays DOM, nombre del juego (ZC.applyBrand) e íconos (ZC.icon)
    Contrato: Muestra/oculta title, lobby y result con hidden+active. ZC.UI.screens registra esas pantallas.
    Depende de: js/zc.js
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.
@@ -21,6 +21,29 @@ ZC.hideOverlay = function (id) {
     n.hidden = false;
     n.classList.add("active");
   }
+
+  // Nombre del juego: copia ZC.BRAND (js/zc.js) a todo lo que tenga
+  // data-brand="name" | "tag" | "company" | "creator" y al título de la pestaña.
+  ZC.applyBrand = function () {
+    var B = ZC.BRAND || {};
+    if (typeof document === "undefined") return;
+    if (B.name) {
+      try { document.title = B.name; } catch (e) {}
+      var cv = document.getElementById("game");
+      if (cv && cv.setAttribute) cv.setAttribute("aria-label", "Arena de " + B.name);
+    }
+    var nodes = document.querySelectorAll ? document.querySelectorAll("[data-brand]") : [];
+    for (var i = 0; i < nodes.length; i++) {
+      var key = nodes[i].getAttribute("data-brand");
+      if (B[key]) nodes[i].textContent = B[key];
+    }
+  };
+
+  // Ícono SVG del juego (los dibujos están en index.html, <symbol id="i-...">).
+  // Ejemplo: ZC.icon("play") -> '<svg class="ico" ...><use href="#i-play"/></svg>'
+  ZC.icon = function (name, cls) {
+    return '<svg class="ico' + (cls ? " " + cls : "") + '" aria-hidden="true" focusable="false"><use href="#i-' + name + '"/></svg>';
+  };
 
   ZC.goMenu = function () {
     ZC.state = "title";
@@ -119,5 +142,6 @@ ZC.hideOverlay = function (id) {
       full.addEventListener("click", function () { ZC.toggleFullscreen(); });
     }
     if (ZC.bindLobby) ZC.bindLobby();
+    ZC.applyBrand();
   };
 })(typeof window !== "undefined" ? window : globalThis);

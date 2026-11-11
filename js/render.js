@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — dibujo y HUD
+   ZCero — dibujo y HUD
    Contrato: Cámara, escenario, proyectiles, zona y HUD de canvas. La forma del personaje la dibuja js/appearance.js.
    Depende de: js/zc.js, js/maps.js, js/weapons.js, js/zone.js
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.

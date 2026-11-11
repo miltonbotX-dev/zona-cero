@@ -1,6 +1,8 @@
-# Zona Cero
+# ZCero
 
-Prototipo jugable de shooter táctico en vista lateral, estilo battle royale local. La zona se cierra, gana el último superviviente. Al abrirlo se ve el logo, una carga corta y luego el lobby. Hay lobby (mochila, aspecto, mapas y ajustes), fusil y escopeta, bots, cobertura y controles de PC y celular.
+(Antes «Zona Cero». El nombre se cambia en un solo lugar: `ZC.BRAND` en `js/zc.js`.)
+
+Prototipo jugable de shooter táctico en vista lateral, estilo battle royale local. La zona se cierra, gana el último superviviente. Al abrirlo se ve el video del creador (firmado «Amilthon»), la animación de intro, una carga corta y luego el lobby. Los botones usan íconos. Hay lobby (mochila, aspecto, mapas y ajustes), fusil y escopeta, bots, cobertura y controles de PC y celular.
 
 **Cómo jugar en el celular:** abre el enlace del juego y gira el teléfono a horizontal. En un computador, también puedes abrir `index.html` con doble clic (Firefox, Chrome o Edge). No hace falta instalar nada.
 
@@ -27,17 +29,18 @@ Prototipo jugable de shooter táctico en vista lateral, estilo battle royale loc
 | `js/render.js` | Cámara, fondo con imagen, mundo y HUD (`ZC.PALETTE`, `ZC.hudLayout`) | Estética del escenario y dónde va cada panel |
 | `js/ui.js` | Mostrar/ocultar menú, lobby y resultado; pantalla completa | Registrar pantallas |
 | `js/lobby.js` | Sala, perfil, mochila, mapa y ajustes; vista del personaje con su arma | Flujo del lobby |
-| `js/boot.js` | Entrada: logo, carga real de mapas y paso al lobby | Duración de la presentación y la carga |
+| `js/boot.js` | Entrada: video del creador, video de intro, carga real de mapas y paso al lobby | Orden de los videos (`FILMS`), tiempos de espera, cuándo aparece la firma |
 | `js/game.js` | Partida: inicio, victoria/derrota, bucle | Flujo general |
 | `assets/maps/` | Imágenes de fondo de cada mapa (WebP) | Cambiar el paisaje de un mapa |
-| `assets/logo.svg` | Logo de Zona Cero (entrada, lobby y favicon); `logo-192.png` es el ícono del celular | Cambiar el logo |
+| `assets/creadorAmilthon.mp4`, `assets/intro.mp4` | Videos de la entrada (créditos del creador y animación del juego) | Cambiar un video: reemplaza el archivo con el mismo nombre |
+| `assets/logo.svg` | Logo de ZCero (entrada, lobby y favicon); `logo-192.png` es el ícono del celular | Cambiar el logo |
 
 Más detalle técnico en `ARCHITECTURE.md`.
 
 ## Cómo abrir y jugar
 
 ### PC
-Doble clic en `index.html`, o visita la página publicada. Primero sale el logo y una carga corta (un clic o Enter la acorta) y luego el lobby. La flecha del lobby abre el menú con los controles. Controles: WASD o flechas, espacio/W/↑ para saltar (doble salto), ratón para apuntar y disparar, R recarga, 1/2 (o Q) cambia el arma, M silencio.
+Doble clic en `index.html`, o visita la página publicada. Primero salen los dos videos (el botón Saltar, Enter o Esc los pasan; un clic activa el sonido), luego una carga corta y luego el lobby. La flecha del lobby abre el menú con los controles. Controles: WASD o flechas, espacio/W/↑ para saltar (doble salto), ratón para apuntar y disparar, R recarga, 1/2 (o Q) cambia el arma, M silencio.
 
 ### Celular
 Horizontal. Joystick izquierdo: mover. Derecho: apuntar y disparar. Botones Salto, Rec y Arma junto al joystick derecho. En el lobby, Ajustes permite mover y cambiar el tamaño de esos controles.

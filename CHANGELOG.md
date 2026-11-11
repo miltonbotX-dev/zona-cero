@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.6.0 — ZCero: videos de entrada e íconos en los botones (11 nov 2026, America/Lima)
+
+Construida sobre la versión que editó Amilthon: se mantienen su nombre «ZCero», su logo nuevo («Logo Multitemporal»), «Battle royale», «©Amilthon company», «Último superviviente» (con tilde), «Fin de la partida», el texto corto del menú e «Inventario» en lugar de «Mochila». Lobby, caída 3-2-1, HUD de celular, mapas con imagen y balas desde el cañón quedan igual.
+
+- Nombre del juego en un solo lugar: `ZC.BRAND` en `js/zc.js` (nombre, línea, compañía y firma del creador). `ZC.applyBrand` lo copia a todo lo que tenga `data-brand` en `index.html` y al título de la pestaña. Para renombrar el juego cuando elijas la temática, se cambia ahí.
+- Nueva entrada (`js/boot.js`): primero el video del creador (`assets/creadorAmilthon.mp4`) con la firma «Creado por AMILTHON» pequeña abajo, que aparece suave a los 3 s bajo el murciélago; luego la animación de intro (`assets/intro.mp4`, cuadrada, centrada sobre negro); después la barra de carga con el logo, «Toca para entrar» y el lobby. La presentación vieja de 1,4 s con el logo se quitó (el logo sigue en la carga).
+- Los videos arrancan sin sonido (los navegadores no dejan otra cosa). El primer toque activa el sonido, también para la intro; el botón de parlante lo apaga o prende y «Saltar» pasa al siguiente. Si el juego está en silencio (M), los videos siguen callados.
+- La entrada nunca se cuelga: si un video da error, falta, no arranca en 6 s, se traba 3,5 s o el navegador lo bloquea (ahorro de batería), se salta solo. Si el navegador lo bloquea, se ve un botón de play por si quieres verlo.
+- Los mapas se siguen bajando mientras corren los videos, así la carga suele ser corta. La intro se empieza a bajar mientras corre el video del creador.
+- Íconos en lugar de texto (SVG dibujados dentro de `index.html`, sin internet, sin emojis ni fuentes de íconos): Inventario, Aspecto y Ajustes del lobby (con un rótulo pequeño debajo), Iniciar (triángulo de play grande), atrás, engranaje (ya no puede salir como emoji), cerrar panel (X), silencio (parlante que se tacha en rojo), pantalla completa, Jugar y Controles del menú, Otra vez y Menú al final, Listo y Restaurar al mover controles, Mover y Restaurar en Ajustes, Dejar/Llevar (menos/más) en Inventario, y Salto (doble flecha), Recargar y Cambiar arma en la partida. Todos con `aria-label` y `title`.
+- Lobby más pulido: esquinas redondeadas, sombra suave, el botón del panel abierto se marca en ámbar, estados al pasar el dedo o el ratón y al presionar, deslizadores en ámbar y miniatura de fondo en cada mapa de la lista. Se corrigieron estilos de letra que el navegador ignoraba (`font: … inherit`).
+- Barra del navegador en Android: verde oliva del logo (`#4f5c42`) en lugar de «green».
+- `index.html` pide todo con `?v=1.6.0`.
+- Pruebas: 327 de humo (`node tests/smoke.js`: videos en orden, sonido tras el toque, Saltar, video bloqueado, trabado, con error o ausente, íconos con nombre accesible) y 83 en navegador (`tests/browser.py`: los dos videos se reproducen, firma bien ubicada en 1280x720, 844x390 y 390x844, flujo completo sin tocar, íconos del lobby y panel).
+
 ## 1.5.0 — entrada tipo PUBG Mobile y balas desde el cañón (10 nov 2026, America/Lima)
 
 Primera tanda del camino hacia un PUBG Mobile en 2D: la entrada al juego. Lobby, aspectos, mapas con imagen, HUD de celular, caída 3-2-1 y controles arrastrables de la 1.2 a la 1.4 quedan igual. La agresividad de los bots no cambia.

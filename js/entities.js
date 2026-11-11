@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — entidades (actores, partículas, loot)
+   ZCero — entidades (actores, partículas, loot)
    Contrato: Fábricas: makeActor, spawnLoot, seedLoot (usa ZC.map.lootSpots), partículas y killfeed. No decide quién gana ni dispara.
    Depende de: js/zc.js, js/config.js, js/weapons.js, js/maps.js
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.

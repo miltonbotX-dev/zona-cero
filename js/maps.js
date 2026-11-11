@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — mapas
+   ZCero — mapas
    Contrato: Registro ZC.Maps y mapa activo ZC.map (platforms, crates, spawns, silos, lootSpots, blurb, backgroundImage, bgFallback). Precarga las imágenes de fondo (ZC.Maps.preload / imageFor). El lobby lista ZC.Maps.list() y startMatch usa el mapa del perfil.
    Depende de: js/zc.js, js/config.js
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.

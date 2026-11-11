@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — núcleo del namespace
+   ZCero — núcleo del namespace
    Contrato: crea window.ZC / window.ZonaCero, utilidades puras y el estado
    compartido de la partida. Ningún otro archivo debe redeclarar el namespace.
    Depende de: nada (debe cargarse primero)
@@ -10,7 +10,17 @@
   "use strict";
 
   var ZC = {
-    version: "1.5.0",
+    version: "1.6.0",
+    // Nombre del juego en UN solo lugar. Para renombrarlo (por ejemplo, cuando
+    // elijas el nombre según las temáticas), cambia estos textos y listo:
+    // js/ui.js (ZC.applyBrand) los copia a todo lo que tenga data-brand="..."
+    // en index.html y al título de la pestaña.
+    BRAND: {
+      name: "ZCero",                 // nombre visible (entrada, menú, pestaña)
+      tag: "Battle royale",          // línea bajo el nombre en la carga
+      company: "©Amilthon company",    // pie de la pantalla de carga
+      creator: "Amilthon"            // firma sobre el video del creador
+    },
     state: "title",
     mounted: false,
     SCRIPT_ORDER: [

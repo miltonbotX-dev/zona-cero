@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — lobby
+   ZCero — lobby
    Contrato: Carga el perfil, pinta el lobby (sala) y despliega con ZC.startFromLobby. Los paneles de mochila, aspecto, mapa y ajustes viven aquí. La forma la dibuja ZC.Appearance.
    Depende de: js/zc.js, js/weapons.js, js/maps.js, js/appearance.js, js/ui.js (en runtime llama ZC.startMatch)
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.
@@ -202,10 +202,12 @@
         '<button type="button" class="hand" data-act="hand" data-weapon="' + id + '">' +
         '<strong style="color:' + w.color + '">' + w.name + '</strong>' +
         '<span class="inv-meta">' + w.mag + " / " + w.reserve + " al desplegar</span>" +
-        '<span class="inv-meta">' + (hand ? "En mano" : carried ? "En la mochila" : "Fuera del equipo") + "</span>" +
+        '<span class="inv-meta">' + (hand ? "En mano" : carried ? "En el inventario" : "Fuera del equipo") + "</span>" +
         "</button>" +
-        '<button type="button" class="mini" data-act="drop" data-weapon="' + id + '">' +
-        (carried ? "Dejar" : "Llevar") + "</button></div>";
+        // Dejar / llevar: ícono menos o más (con nombre para lectores de pantalla)
+        '<button type="button" class="mini round-ico" data-act="drop" data-weapon="' + id + '" title="' +
+        (carried ? "Dejar" : "Llevar") + '" aria-label="' + (carried ? "Dejar " : "Llevar ") + w.name + '">' +
+        ZC.icon(carried ? "minus" : "plus") + "</button></div>";
     });
     host.innerHTML = html;
   }
@@ -217,7 +219,9 @@
     ZC.Maps.list().forEach(function (id) {
       var map = ZC.Maps.all[id];
       var on = ZC.profile.mapId === id;
-      html += '<button type="button" class="map-card' + (on ? " on" : "") + '" data-map="' + id + '">' +
+      // La miniatura del mapa va de fondo, oscurecida para que se lea el texto
+      var bg = map.backgroundImage ? ' style="background-image:linear-gradient(90deg, rgba(28,23,16,0.95) 45%, rgba(28,23,16,0.6)), url(' + map.backgroundImage + ')"' : "";
+      html += '<button type="button" class="map-card' + (on ? " on" : "") + '" data-map="' + id + '"' + bg + '>' +
         "<strong>" + map.name + "</strong><span>" + (map.blurb || "Arena local") + "</span></button>";
     });
     host.innerHTML = html;
@@ -234,8 +238,8 @@
       '<input id="set-scale" type="range" min="70" max="140" step="5" value="' + Math.round(p.controlScale * 100) + '"></div>' +
       '<p class="lobby-label">Mapa</p><div id="lobby-maps"></div>' +
       '<div class="actions">' +
-      '<button type="button" class="cta" id="btn-layout-edit">Mover controles</button>' +
-      '<button type="button" class="ghost" id="btn-layout-reset-inline">Restaurar posición</button>' +
+      '<button type="button" class="cta cta-ico" id="btn-layout-edit" title="Mover controles" aria-label="Mover controles">' + ZC.icon("move") + '<span>Mover</span></button>' +
+      '<button type="button" class="ghost round-ico" id="btn-layout-reset-inline" title="Restaurar posición" aria-label="Restaurar posición">' + ZC.icon("undo") + '</button>' +
       '</div>' +
       '<p class="footnote">Arrastra joysticks y botones. WASD, espacio y el ratón no cambian.</p>';
     fillMaps(document.getElementById("lobby-maps"));
@@ -279,15 +283,28 @@
     var body = document.getElementById("lobby-sheet-body");
     if (!sheet || !body) return;
     sheet.hidden = false;
-    var titles = { inventory: "Mochila", looks: "Aspecto", map: "Mapa", settings: "Ajustes" };
+    var titles = { inventory: "Inventario", looks: "Aspecto", map: "Mapa", settings: "Ajustes" };
     if (title) title.textContent = titles[which] || "Lobby";
+    markDock(which);
     if (which === "inventory") fillInventory(body);
     else if (which === "looks") fillLooks(body);
     else if (which === "map") fillMaps(body);
     else if (which === "settings") fillSettings(body);
   }
 
+  // Marca en ámbar el botón del panel abierto (Inventario, Aspecto, Ajustes)
+  function markDock(which) {
+    if (!document.querySelectorAll) return;
+    var btns = document.querySelectorAll(".lobby-dock [data-panel], .lobby-top [data-panel]");
+    for (var i = 0; i < btns.length; i++) {
+      var on = !!which && btns[i].getAttribute("data-panel") === which;
+      if (btns[i].classList) btns[i].classList.toggle("on", on);
+      if (btns[i].setAttribute) btns[i].setAttribute("aria-pressed", on ? "true" : "false");
+    }
+  }
+
   function closeSheet() {
+    markDock(null);
     ZC.lobbySheet = null;
     var sheet = document.getElementById("lobby-sheet");
     if (sheet) sheet.hidden = true;

@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — despliegue (caída con cuenta regresiva)
+   ZCero — despliegue (caída con cuenta regresiva)
    Contrato: Al empezar la partida todos caen en paracaídas desde lo alto del mapa mientras corre una cuenta 3-2-1. Durante la caída no hay disparos, ni zona, ni bots pensando. Al llegar a 0 se aterriza y empieza el combate. ZC.Drop.start / update / active / skip, más el dibujo del paracaídas (drawWorld) y de la cuenta (drawHUD).
    Depende de: js/zc.js, js/config.js, js/physics.js (collideWorld en runtime)
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.

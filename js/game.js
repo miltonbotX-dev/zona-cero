@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — bootstrap y flujo de partida
+   ZCero — bootstrap y flujo de partida
    Contrato: startMatch / endMatch / update / loop / mount y la API pública (ZonaCero). Orquesta módulos; no define físicas ni armas.
    Depende de: todos los módulos anteriores
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.
@@ -108,7 +108,7 @@ ZC.recountAlive = function () {
     const stats = document.getElementById("end-stats");
     const extra = document.getElementById("end-extra");
     const kicker = document.getElementById("end-kicker");
-    if (kicker) kicker.textContent = win ? "Último superviviente" : "Fin de partida";
+    if (kicker) kicker.textContent = win ? "Último superviviente" : "Fin de la partida";
     if (title) title.textContent = win ? "Victoria" : (ZC.player && ZC.player.dead ? "Derrota" : "Fin");
     const place = ZC.match.playerPlace || (win ? 1 : ZC.match.alive + (ZC.player && ZC.player.dead ? 1 : 0));
     const who = ZC.match.winner ? ZC.match.winner.name : "Nadie";

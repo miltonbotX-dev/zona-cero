@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — apariencia del personaje
+   ZCero — apariencia del personaje
    Contrato: Dibuja la forma del combatiente (ZC.Appearance.draw) y registra los aspectos elegibles en el lobby. No decide daño, input ni HUD.
    Depende de: js/zc.js, js/weapons.js (en runtime, al dibujar)
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.

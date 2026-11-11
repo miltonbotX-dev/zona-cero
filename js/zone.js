@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — zona que se cierra
+   ZCero — zona que se cierra
    Contrato: ZC.ZONE_SCRIPT y el círculo seguro (reset/update/inZone). El daño lo aplica game.js leyendo ZC.zone.dps.
    Depende de: js/zc.js, js/config.js
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.

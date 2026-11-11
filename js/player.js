@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — jugador
+   ZCero — jugador
    Contrato: Crea al jugador (ZC.spawnPlayer) y aplica su input+física (ZC.updatePlayer). No pinta HUD ni define teclas.
    Depende de: js/zc.js, js/entities.js, js/physics.js, js/input.js (readPlayerInput en runtime)
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.

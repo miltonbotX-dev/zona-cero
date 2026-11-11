@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — física de plataformas
+   ZCero — física de plataformas
    Contrato: collideWorld, tryJump (doble salto + coyote) y controlActor (mover/saltar y dispara/recarga vía combate). Mutan el actor; leen ZC.map y ZC.CFG.
    Depende de: js/zc.js, js/config.js, js/maps.js  (en runtime llama a ZC.fireWeapon / ZC.startReload)
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.

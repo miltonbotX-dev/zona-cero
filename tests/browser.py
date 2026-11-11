@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pruebas en navegador real (Chrome headless) para Zona Cero.
+"""Pruebas en navegador real (Chrome headless) para ZCero (antes Zona Cero).
 
 Uso:
   uv run --with playwright python tests/browser.py [URL] [carpeta_capturas]
@@ -86,12 +86,37 @@ with sync_playwright() as p:
     logs = collect_console(page)
     page.goto(URL, wait_until="networkidle")
     page.wait_for_timeout(300)
-    # --- Entrada v1.5: logo -> carga -> lobby ---
+    # --- Entrada v1.6: video del creador -> intro -> carga -> lobby ---
     boot0 = page.evaluate("() => ({ phase: ZC.Boot.phase, visible: !document.getElementById('boot-screen').hidden, title: !document.getElementById('title-screen').hidden, lobby: !!ZC.lobbyOpen })")
-    ok(boot0["phase"] in ("splash", "loading") and boot0["visible"] and not boot0["title"] and not boot0["lobby"],
-       "al abrir se ve la presentación de Zona Cero (no el menú ni el lobby)", json.dumps(boot0))
-    ok(page.locator("#boot-logo").is_visible() and page.evaluate("() => document.getElementById('boot-logo').naturalWidth > 0"), "el logo carga y se ve")
-    page.screenshot(path=str(SHOTS / "desktop-boot-splash.png"))
+    ok(boot0["phase"] == "creator" and boot0["visible"] and not boot0["title"] and not boot0["lobby"],
+       "al abrir se ve el video del creador (no el menú ni el lobby)", json.dumps(boot0))
+    page.wait_for_function("() => document.getElementById('boot-video-creator').currentTime > 0.3", timeout=8000)
+    vid = page.evaluate("""() => { const v = document.getElementById('boot-video-creator'); const r = v.getBoundingClientRect();
+      return { t: v.currentTime, muted: v.muted, paused: v.paused, w: v.videoWidth, h: v.videoHeight, fit: getComputedStyle(v).objectFit,
+               vis: r.width > 0 && !v.hidden, introHidden: document.getElementById('boot-video-intro').hidden }; }""")
+    ok(vid["t"] > 0.3 and not vid["paused"] and vid["muted"] and vid["w"] == 1280, "el video del creador se reproduce solo y sin sonido", json.dumps(vid))
+    ok(vid["vis"] and vid["introHidden"] and vid["fit"] == "contain", "solo se ve el creador, entero (contain)", json.dumps(vid))
+    ok(page.locator("#boot-skip").is_visible() and page.locator("#boot-sound").is_visible(), "botones Saltar y sonido visibles")
+    page.wait_for_function("() => document.getElementById('boot-credit').classList.contains('on')", timeout=8000)
+    page.wait_for_timeout(1300)
+    cred = page.evaluate("""() => { const c = document.querySelector('.boot-credit-name'); const r = c.getBoundingClientRect();
+      return { text: c.textContent, op: getComputedStyle(document.getElementById('boot-credit')).opacity, y: r.y, b: r.y + r.height, x: r.x, w: r.width }; }""")
+    ok(cred["text"] == "Amilthon" and float(cred["op"]) > 0.9 and cred["b"] <= 720 and cred["y"] > 720 * 0.8,
+       "la firma «Amilthon» aparece abajo, bajo el dibujo", json.dumps(cred))
+    page.screenshot(path=str(SHOTS / "desktop-boot-creator.png"))
+    page.click("#boot-skip")
+    page.wait_for_timeout(200)
+    ph = page.evaluate("() => ({ phase: ZC.Boot.phase, creatorPaused: document.getElementById('boot-video-creator').paused, sound: ZC.Boot.sound, introMuted: document.getElementById('boot-video-intro').muted })")
+    ok(ph["phase"] == "intro" and ph["creatorPaused"], "«Saltar» pasa del creador a la intro", json.dumps(ph))
+    ok(ph["sound"] and not ph["introMuted"], "tras tocar, la intro ya suena", json.dumps(ph))
+    page.wait_for_function("() => document.getElementById('boot-video-intro').currentTime > 0.3", timeout=8000)
+    ok(page.evaluate("() => { const v = document.getElementById('boot-video-intro'); return !v.paused && v.videoWidth === 544 && document.getElementById('boot-credit').hidden; }"), "la intro (cuadrada) se reproduce y sin firma")
+    page.screenshot(path=str(SHOTS / "desktop-boot-intro.png"))
+    page.click("#boot-skip")
+    page.wait_for_timeout(120)
+    ok(page.evaluate("() => ZC.Boot.phase") in ("loading", "ready"), "un segundo «Saltar» lleva a la carga")
+    ok(page.locator("#boot-logo").is_visible() and page.evaluate("() => document.getElementById('boot-logo').naturalWidth > 0"), "en la carga el logo carga y se ve")
+    page.screenshot(path=str(SHOTS / "desktop-boot-loading.png"))
     style = page.evaluate("""() => {
       const cs = el => getComputedStyle(el);
       return { boot: cs(document.getElementById('boot-screen')).backgroundImage + ' ' + cs(document.getElementById('boot-screen')).backgroundColor,
@@ -102,7 +127,6 @@ with sync_playwright() as p:
     neon = ("92, 228, 255", "106, 239, 255", "43, 183, 214")
     ok(not any(n in json.dumps(style) for n in neon), "entrada sin cian neón", json.dumps(style))
     ok(style["bodyBg"] == "rgb(23, 19, 14)", "fondo de página tierra oscuro", style["bodyBg"])
-    page.wait_for_function("() => ZC.Boot.phase !== 'splash'", timeout=4000)
     samples = []
     for _ in range(30):
         smp = page.evaluate("() => ({ phase: ZC.Boot.phase, shown: ZC.Boot.shown, real: ZC.Boot.progress(), pct: document.getElementById('boot-pct').textContent })")
@@ -121,12 +145,41 @@ with sync_playwright() as p:
     ok(st.get("lobbyOpen") and not st.get("lobbyHidden") and st.get("titleHidden"), "la carga termina sola en el lobby", json.dumps(st))
     ok(page.evaluate("() => document.getElementById('boot-screen').hidden && !document.getElementById('app').classList.contains('booting')"), "la pantalla de carga se oculta")
     ok(page.locator("#btn-deploy").is_visible(), "botón Iniciar visible")
+    # v1.6: íconos en lugar de texto
+    icons = page.evaluate("""() => {
+      const q = s => [...document.querySelectorAll(s)];
+      const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+      const shown = q('#lobby-screen button').filter(vis);
+      return {
+        total: shown.length,
+        withIcon: shown.filter(b => b.querySelector('svg.ico use')).length,
+        labelled: shown.filter(b => b.getAttribute('aria-label') && b.getAttribute('title')).length,
+        gearText: (document.querySelector('.lobby-top [data-panel=settings]').textContent || '').trim(),
+        gearSvgW: document.querySelector('.lobby-top [data-panel=settings] svg').getBoundingClientRect().width,
+        dock: q('.lobby-dock button').map(b => b.querySelector('svg.ico') ? b.getAttribute('aria-label') : null),
+        startW: document.querySelector('#btn-deploy svg').getBoundingClientRect().width,
+        mute: !!document.querySelector('#btn-mute svg.ico-on') && document.getElementById('btn-mute').textContent.trim() === ''
+      };
+    }""")
+    ok(icons["total"] >= 7 and icons["withIcon"] >= icons["total"] - 2 and icons["labelled"] == icons["total"], "botones del lobby con ícono SVG, aria-label y title", json.dumps(icons))
+    ok(icons["gearText"] == "" and icons["gearSvgW"] >= 16, "el engranaje de Ajustes es un SVG (no un emoji)", json.dumps(icons))
+    ok(icons["dock"] == ["Inventario", "Aspecto", "Ajustes"] and icons["startW"] >= 20 and icons["mute"], "dock con íconos, Iniciar con triángulo y silencio con ícono", json.dumps(icons))
+    page.click(".lobby-dock [data-panel=inventory]")
+    page.wait_for_timeout(150)
+    sheet = page.evaluate("() => ({ open: !document.getElementById('lobby-sheet').hidden, title: document.getElementById('lobby-sheet-title').textContent, on: document.querySelector('.lobby-dock [data-panel=inventory]').classList.contains('on'), minis: [...document.querySelectorAll('#lobby-sheet-body button.mini')].map(b => !!b.querySelector('svg') && !!b.getAttribute('aria-label')) })")
+    ok(sheet["open"] and sheet["title"] == "Inventario" and sheet["on"] and sheet["minis"] and all(sheet["minis"]), "Inventario abre su panel, se marca y usa íconos", json.dumps(sheet))
+    page.screenshot(path=str(SHOTS / "desktop-lobby-sheet.png"))
+    page.click("#btn-sheet-close")
+    page.wait_for_timeout(120)
+    ok(page.evaluate("() => document.getElementById('lobby-sheet').hidden && !document.querySelector('.lobby-dock .on')"), "la X cierra el panel")
+    ok(page.evaluate("() => document.title") == "ZCero", "título de la pestaña desde ZC.BRAND")
     fav = page.evaluate("() => [...document.querySelectorAll('link[rel~=icon]')].map(l => l.getAttribute('href'))")
     ok(any("logo.svg" in f for f in fav), "favicon propio (logo)", json.dumps(fav))
     # El menú de antes (controles) sigue disponible desde la flecha del lobby
     page.click("#btn-lobby-back")
     page.wait_for_timeout(200)
-    ok(page.locator("h1").first.inner_text().strip().upper().startswith("ZONA CERO") and page.locator("#btn-play").is_visible(), "la flecha del lobby lleva al menú con los controles")
+    ok(page.locator("h1").first.inner_text().strip().upper().startswith("ZCERO") and page.locator("#btn-play").is_visible(), "la flecha del lobby lleva al menú con los controles")
+    ok(page.evaluate("() => ['btn-play', 'btn-how'].every(id => document.querySelector('#' + id + ' svg.ico'))"), "el menú usa íconos (jugar y controles)")
     page.screenshot(path=str(SHOTS / "desktop-title.png"))
     page.click("#btn-play")
     page.wait_for_timeout(500)
@@ -216,7 +269,18 @@ with sync_playwright() as p:
     st = js_state(page)
     ok(st.get("portraitDisplay") == "none", "en retrato el aviso de girar no tapa la presentación", st.get("portraitDisplay"))
     page.screenshot(path=str(SHOTS / "phone-390x844-boot.png"), full_page=False)
-    page.wait_for_function("() => ZC.lobbyOpen", timeout=12000)
+    # Sin tocar nada: los dos videos completos (~16 s) y luego la carga y el lobby
+    page.wait_for_function("() => document.getElementById('boot-credit').classList.contains('on')", timeout=10000)
+    page.wait_for_timeout(1300)
+    pc = page.evaluate("""() => { const v = document.getElementById('boot-video-creator'); const vr = v.getBoundingClientRect();
+      const H = Math.min(vr.height, vr.width * v.videoHeight / v.videoWidth); const vb = vr.y + (vr.height + H) / 2;
+      const c = document.getElementById('boot-credit').getBoundingClientRect(); return { videoBottom: vb, creditTop: c.y, creditBottom: c.y + c.height }; }""")
+    ok(pc["creditTop"] >= pc["videoBottom"] - 2 and pc["creditBottom"] < 844, "en retrato la firma va bajo el video sin taparlo", json.dumps(pc))
+    page.screenshot(path=str(SHOTS / "phone-390x844-creator.png"), full_page=False)
+    page.wait_for_function("() => ZC.Boot.phase === 'intro'", timeout=14000)
+    ok(not page.evaluate("() => ZC.Boot.skipped.length"), "el creador terminó solo y pasó a la intro", page.evaluate("() => ZC.Boot.skipped.join(',')"))
+    page.wait_for_function("() => ZC.lobbyOpen", timeout=20000)
+    ok(not page.evaluate("() => ZC.Boot.skipped.length"), "la intro terminó sola y entró al lobby", page.evaluate("() => ZC.Boot.skipped.join(',')"))
     page.wait_for_timeout(200)
     st = js_state(page)
     ok(st.get("portraitDisplay") == "flex", "aviso de girar a horizontal en retrato (después de la carga)", st.get("portraitDisplay"))
@@ -251,16 +315,29 @@ with sync_playwright() as p:
     page.wait_for_timeout(500)
     st = js_state(page)
     ok(st.get("portraitDisplay") == "none", "sin aviso de rotación en horizontal", st.get("portraitDisplay"))
-    page.screenshot(path=str(SHOTS / "phone-844x390-boot-splash.png"))
+    page.wait_for_function("() => document.getElementById('boot-video-creator').currentTime > 0.3", timeout=8000)
+    page.wait_for_function("() => document.getElementById('boot-credit').classList.contains('on')", timeout=8000)
+    page.wait_for_timeout(1300)
+    c = page.evaluate("""() => { const r = document.getElementById('boot-credit').getBoundingClientRect(); const s = document.querySelector('.boot-film-ctrl').getBoundingClientRect();
+      return { top: r.y, bottom: r.y + r.height, ctrlTop: s.y, ctrlRight: s.x + s.width, phase: ZC.Boot.phase }; }""")
+    ok(c["phase"] == "creator" and c["bottom"] <= 390 and c["top"] > 390 * 0.8 and c["ctrlTop"] >= 0 and c["ctrlRight"] <= 844,
+       "en 844x390 la firma queda abajo y los botones dentro de la pantalla", json.dumps(c))
+    page.screenshot(path=str(SHOTS / "phone-844x390-boot-creator.png"))
+    page.locator("#boot-screen").tap(position={"x": 300, "y": 200})
+    page.wait_for_timeout(200)
+    t1 = page.evaluate("() => ({ phase: ZC.Boot.phase, sound: ZC.Boot.sound, muted: document.getElementById('boot-video-creator').muted })")
+    ok(t1["phase"] == "creator" and t1["sound"] and not t1["muted"], "el primer toque activa el sonido sin saltar el video", json.dumps(t1))
+    page.locator("#boot-skip").tap()
+    page.wait_for_function("() => document.getElementById('boot-video-intro').currentTime > 0.5", timeout=8000)
+    page.screenshot(path=str(SHOTS / "phone-844x390-boot-intro.png"))
+    iv = page.evaluate("() => { const r = document.getElementById('boot-video-intro').getBoundingClientRect(); return { phase: ZC.Boot.phase, w: r.width, h: r.height }; }")
+    ok(iv["phase"] == "intro", "Saltar en el celular pasa a la intro", json.dumps(iv))
+    page.locator("#boot-skip").tap()
+    page.wait_for_timeout(150)
     brand = page.evaluate("""() => { const r = document.querySelector('.boot-brand').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; }""")
     ok(brand["y"] >= 0 and brand["y"] + brand["h"] <= 390 and brand["x"] >= 0 and brand["x"] + brand["w"] <= 844, "el logo cabe en 844x390", json.dumps(brand))
-    # Un toque acorta la presentación
-    page.locator("#boot-screen").tap()
-    page.wait_for_timeout(250)
     ph = page.evaluate("() => ZC.Boot.phase")
-    ok(ph in ("loading", "ready", "done"), "un toque en la presentación pasa a la carga", ph)
-    if ph == "loading":
-        page.wait_for_timeout(250)
+    ok(ph in ("loading", "ready", "done"), "tras los dos videos llega la carga", ph)
     page.evaluate("() => { if (ZC.Boot.phase === 'ready' || ZC.Boot.phase === 'loading') ZC.Boot.paint(); }")
     page.screenshot(path=str(SHOTS / "phone-844x390-boot-loading.png"))
     bar = page.evaluate("""() => { const a = document.querySelector('.boot-load').getBoundingClientRect(); const b = document.querySelector('.boot-brand').getBoundingClientRect(); return { loadTop: a.y, loadBottom: a.y + a.height, brandBottom: b.y + b.height }; }""")

@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — inteligencia local
+   ZCero — inteligencia local
    Contrato: thinkBot y ayudantes de visión/cobertura. Los bots se pelean entre sí y huyen de la zona. Ajusta inaccuracy/aggress en makeActor o aquí.
    Depende de: js/zc.js, js/maps.js, js/physics.js, js/zone.js, js/combat.js
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.

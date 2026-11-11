@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — armas
+   ZCero — armas
    Contrato: Define ZC.WEAPONS y ZC.copyLoadout / ZC.registerWeapon. El combate lee estas fichas; no pongas lógica de disparo aquí.
    Depende de: js/zc.js, js/config.js
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.

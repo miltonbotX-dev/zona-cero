@@ -44,7 +44,7 @@ ok(html.indexOf('lang="es"') >= 0, "marcado en español");
 ok(/Jugar/.test(html), "botón o texto Jugar");
 ok(/WASD/.test(html), "menciona controles WASD");
 ok(/joystick/i.test(html), "menciona joystick");
-ok(/Zona Cero/.test(html), "título Zona Cero");
+ok(/<title>ZCero<\/title>/.test(html), "título ZCero (nombre del juego)");
 ok(!/https?:\/\//i.test(html), "index.html sin URLs de red");
 ok(!/cdn|unpkg|jsdelivr|googleapis|cloudflare/i.test(html), "sin CDN");
 ok(!/WebSocket|firebase|socket\.io/i.test(html), "sin red / multijugador");
@@ -60,7 +60,28 @@ ok(fs.existsSync(path.join(root, "assets", "logo.svg")) && fs.existsSync(path.jo
 ok(!/neón|neon/i.test(fs.readFileSync(path.join(root, "assets", "logo.svg"), "utf8")) && !/#5ce4ff|#6aefff|#2bb7d6/i.test(fs.readFileSync(path.join(root, "assets", "logo.svg"), "utf8")), "logo en paleta tierra, sin cian");
 ok(/id="lobby-gear-name"/.test(html), "el lobby muestra el arma en mano junto al personaje");
 ok(/href="css\/style\.css(\?v=[\w.]+)?"/.test(html), "enlaza css/style.css");
-ok(/\?v=1\.5\.0/.test(html) && !/\?v=1\.4\.0/.test(html), "index.html marca los archivos con la versión 1.5.0 (sin caché viejo)");
+ok(/\?v=1\.6\.0/.test(html) && !/\?v=1\.[0-5]\.0/.test(html), "index.html marca los archivos con la versión 1.6.0 (sin caché viejo)");
+// v1.6) Videos de entrada, marca en un solo lugar e íconos
+ok(/<video id="boot-video-creator"[^>]*src="assets\/creadorAmilthon\.mp4/.test(html) && /<video id="boot-video-intro"[^>]*src="assets\/intro\.mp4/.test(html), "la entrada tiene el video del creador y el de intro");
+ok(html.indexOf('id="boot-video-creator"') < html.indexOf('id="boot-video-intro"'), "primero el creador, luego la intro");
+ok((html.match(/<video [^>]*\bmuted\b[^>]*\bplaysinline\b/g) || []).length === 2, "los dos videos arrancan sin sonido y dentro de la página (muted + playsinline)");
+ok(fs.existsSync(path.join(root, "assets", "creadorAmilthon.mp4")) && fs.existsSync(path.join(root, "assets", "intro.mp4")), "existen assets/creadorAmilthon.mp4 e intro.mp4");
+ok(/id="boot-skip"[^>]*aria-label="Saltar/.test(html) && /id="boot-sound"/.test(html), "botón Saltar y botón de sonido en los videos");
+ok(/id="boot-credit"[\s\S]{0,200}data-brand="creator">Amilthon</.test(html), "firma «Amilthon» sobre el video del creador");
+ok(/©Amilthon company/.test(html) && /Battle royale/.test(html) && /Último superviviente/.test(html) && /Fin de la partida/.test(html), "se mantienen los textos del usuario");
+ok((html.match(/data-brand="name"/g) || []).length >= 3, "el nombre del juego se marca con data-brand (fácil de cambiar)");
+(function () {
+  const buttons = html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) || [];
+  const noIcon = buttons.filter(function (b) { return b.indexOf('class="ico') < 0 && b.indexOf("lobby-gear") < 0 && b.indexOf("lobby-map-card") < 0; });
+  ok(buttons.length >= 20 && noIcon.length === 0, "todos los botones del HTML llevan ícono SVG", noIcon.join(" | ").slice(0, 300));
+  const noLabel = buttons.filter(function (b) { const tag = b.match(/<button\b[^>]*>/)[0]; return !/aria-label="[^"]+"/.test(tag) || !/title="[^"]+"/.test(tag); });
+  ok(noLabel.length === 0, "cada botón con ícono tiene aria-label y title", noLabel.map(function (b) { return b.slice(0, 80); }).join(" | "));
+  const uses = (html.match(/href="#i-([\w-]+)"/g) || []).map(function (u) { return u.slice(9, -1); });
+  const missing = uses.filter(function (u) { return html.indexOf('<symbol id="i-' + u + '"') < 0; });
+  ok(uses.length > 0 && missing.length === 0, "cada ícono usado está dibujado en index.html", missing.join(", "));
+})();
+ok(!/[⚙←♪]/.test(html), "sin ⚙, ← ni ♪ (el engranaje ya no puede salir como emoji)");
+ok(!/font-awesome|material-icons|icon-font|fonts\.g/i.test(html), "sin fuentes de íconos externas");
 
 const cssPath = path.join(root, "css", "style.css");
 ok(fs.existsSync(cssPath), "existe css/style.css");
@@ -660,105 +681,41 @@ ZC.viewW = savedView.w; ZC.viewH = savedView.h;
 // ---------------------------------------------------------------------------
 // v1.4) Despliegue: caída con cuenta regresiva
 // ---------------------------------------------------------------------------
-console.log("v1.4 Despliegue");
-ok(DROP_DEFAULT === 3, "la caída dura 3 s por defecto (3-2-1)", String(DROP_DEFAULT));
-ok(!!ZC.Drop && typeof ZC.Drop.start === "function" && typeof ZC.__test.skipDrop === "function", "API ZC.Drop y __test.skipDrop");
-ZC.cfg.dropTime = DROP_DEFAULT;
-ZC.Maps.use("arena-industrial");
-ZC.startMatch();
-let ds = ZC.getState();
-ok(ds.mode === "playing" && ds.drop && ds.drop.on, "al iniciar empieza la caída", JSON.stringify(ds.drop));
-ok(ds.drop.count === 3, "la cuenta arranca en 3", String(ds.drop.count));
-ok(ZC.killfeed[0] && /Despliegue/.test(ZC.killfeed[0].text), "el registro dice Despliegue");
-const dp = ZC.__test.player;
-ok(dp.y < ZC.cfg.groundY - 150, "el jugador empieza en el aire", String(dp.y));
-ok(ZC.__test.actors.every(function (a) { return !a.grounded && a.dropVy > 0; }), "todos caen en paracaídas");
-ok(ZC.__test.actors.every(function (a) { return a.chute === 1; }), "todos con el paracaídas abierto");
-const zoneTimer0 = ZC.__test.zone.timer, zoneR0 = ZC.__test.zone.r;
-ZC.input.fire = true;
-ZC.input.analog = true; ZC.input.moveX = 0;
-const bx0 = ZC.__test.actors.filter(function (a) { return !a.isPlayer; }).map(function (a) { return a.x; });
-const counts = [];
-for (let i = 0; i < 60; i++) { ZC.update(1 / 60); if (counts[counts.length - 1] !== ZC.Drop.count()) counts.push(ZC.Drop.count()); }
-ok(ZC.bullets.length === 0, "durante la caída no se dispara", String(ZC.bullets.length));
-ok(ZC.match.elapsed === 0, "el reloj de partida no corre durante la caída", String(ZC.match.elapsed));
-ok(ZC.__test.zone.r === zoneR0 && ZC.__test.zone.timer === zoneTimer0, "la zona espera a que aterricen");
-ok(ZC.__test.actors.filter(function (a) { return !a.isPlayer; }).every(function (a, i) { return a.x === bx0[i]; }), "los bots no se mueven en el aire");
-ok(dp.y > dp.dropFromY + 10 && !dp.grounded && !dp.landed, "tras 1 s sigue bajando en paracaídas", dp.dropFromY.toFixed(1) + " -> " + dp.y.toFixed(1));
-ok(ZC.__test.actors.every(function (a) { return a.dead || !a.landed; }), "nadie aterriza antes de tiempo");
-// Guiar la caída
-const sx0 = dp.x;
-ZC.input.moveX = 1;
-for (let i = 0; i < 20; i++) ZC.update(1 / 60);
-ok(dp.x > sx0 + 20, "el joystick guía la caída hacia los lados", sx0 + " -> " + dp.x);
-ZC.input.moveX = 0;
-dp.x = sx0; // vuelve a su vertical para que el aterrizaje sea predecible
-ok(ZC.getState().drop.count === 2 || ZC.getState().drop.count === 1, "la cuenta baja", String(ZC.getState().drop.count));
-for (let i = 0; i < 120 && ZC.Drop.active(); i++) { ZC.update(1 / 60); const c = ZC.Drop.count(); if (counts[counts.length - 1] !== c) counts.push(c); }
-// Justo al terminar la cuenta (antes de que los bots empiecen a saltar)
-ok(ZC.__test.actors.every(function (a) { return a.dead || a.grounded; }), "todos tocan tierra justo en el 0",
-  JSON.stringify(ZC.__test.actors.filter(function (a) { return !a.dead && !a.grounded; }).map(function (a) { return [a.name, Math.round(a.x), Math.round(a.y)]; })));
-ok(Math.abs(ZC.Drop.state.t - DROP_DEFAULT) < 0.05, "la cuenta dura lo previsto", ZC.Drop.state.t.toFixed(3));
-ok(counts.join(",") === "3,2,1,0", "secuencia 3-2-1 y fin", counts.join(","));
-ds = ZC.getState();
-ok(!ds.drop.on, "la caída termina a los 3 s");
-ok(ZC.Drop.state.go > 0 || ZC.match.elapsed > 0, "aparece A COMBATIR o ya corre el reloj");
-for (let i = 0; i < 30; i++) ZC.update(1 / 60);
-ok(ZC.__test.actors.every(function (a) { return a.dead || a.chute === 0; }), "los paracaídas se pliegan al aterrizar");
-ok(ZC.match.elapsed > 0.2, "después de aterrizar corre el reloj", String(ZC.match.elapsed));
-ok(ZC.killfeed.some(function (k) { return /Aterrizaje/.test(k.text); }), "el registro avisa el aterrizaje");
-ZC.input.fire = false; ZC.input.analog = false;
-dp.gun.cooldown = 0; dp.gun.reloading = 0;
-const shotOk = ZC.__test.fire();
-ok(shotOk && ZC.bullets.length > 0, "tras aterrizar ya se puede disparar");
-// Dibujo del despliegue
-ZC.startMatch();
-(function () {
-  const texts = [];
-  const spy = Object.assign({}, makeCtx());
-  spy.fillText = function (t) { texts.push(String(t)); };
-  let curves = 0;
-  spy.quadraticCurveTo = function () { curves++; };
-  const real = ZC.ctx; ZC.ctx = spy;
-  ZC.viewW = 844; ZC.viewH = 390;
-  try {
-    ZC.draw();
-    ok(true, "draw() durante la caída no lanza");
-  } catch (e) { ok(false, "draw() durante la caída no lanza", e && e.stack); }
-  ok(texts.indexOf("3") >= 0, "se dibuja el número grande de la cuenta", texts.slice(0, 12).join("|"));
-  ok(texts.some(function (t) { return /SALTANDO SOBRE/.test(t); }), "se nombra el mapa de la caída");
-  ok(texts.some(function (t) { return /Guía la caída/.test(t); }), "pista para guiar la caída");
-  ok(texts.some(function (t) { return / m$/.test(t); }), "altímetro en metros");
-  ok(curves >= 8, "se dibujan los paracaídas", String(curves));
-  ZC.__test.skipDrop();
-  texts.length = 0;
-  ZC.draw();
-  ok(texts.indexOf("A COMBATIR") >= 0, "al aterrizar se ve A COMBATIR");
-  ZC.ctx = real;
-  ZC.viewW = savedView.w; ZC.viewH = savedView.h;
-})();
-ok(!ZC.Drop.active(), "skipDrop termina la caída");
-ZC.cfg.dropTime = 0;
-ZC.startMatch();
-ok(!ZC.Drop.active() && ZC.map.spawns.some(function (sp) { return sp.x === ZC.__test.player.x && sp.y === ZC.__test.player.y; }),
-  "con dropTime 0 se aparece en su punto como antes");
-
+// v1.6) Entrada: video del creador -> video de intro -> carga -> lobby
 // ---------------------------------------------------------------------------
-// v1.5) Entrada: logo -> carga -> lobby
-// ---------------------------------------------------------------------------
-console.log("v1.5 Entrada (logo, carga, lobby)");
-ok(ZC.Boot && typeof ZC.Boot.step === "function" && typeof ZC.Boot.skip === "function", "ZC.Boot existe con step/skip");
+console.log("v1.6 Entrada (videos, carga, lobby)");
+ok(ZC.version === "1.6.0", "ZC.version es 1.6.0", ZC.version);
+ok(ZC.BRAND && ZC.BRAND.name === "ZCero" && ZC.BRAND.creator === "Amilthon", "el nombre vive en ZC.BRAND", JSON.stringify(ZC.BRAND));
+ok(typeof ZC.applyBrand === "function" && typeof ZC.icon === "function" && /href="#i-play"/.test(ZC.icon("play")), "ZC.applyBrand y ZC.icon existen");
+ok(ZC.Boot && typeof ZC.Boot.step === "function" && typeof ZC.Boot.skip === "function" && typeof ZC.Boot.skipFilm === "function", "ZC.Boot existe con step/skip/skipFilm");
 ok(ZC.Boot.phase === "idle", "en modo test la entrada no arranca sola");
+ok(ZC.Boot.FILMS.map(function (f) { return f.phase; }).join(",") === "creator,intro", "orden de videos: creador y luego intro");
 (function () {
   // Imágenes falsas que cargan cuando el test quiere
   const fakes = [];
   function fakeImg() {
     const im = { complete: false, naturalWidth: 0, _l: {},
       addEventListener: function (t, cb) { this._l[t] = cb; },
-      getAttribute: function () { return "assets/logo.svg?v=1.5.0"; } };
+      getAttribute: function () { return "assets/logo.svg?v=1.6.0"; } };
     im.finish = function (fail) { im.complete = true; im.naturalWidth = fail ? 0 : 100; (im._l[fail ? "error" : "load"] || function () {})(); };
     fakes.push(im);
     return im;
+  }
+  // Video falso: avanza solo cuando el test llama a .run(seg). blocked = el navegador no deja reproducir.
+  function fakeVideo(id, dur, blocked) {
+    const v = makeEl(id);
+    Object.assign(v, { currentTime: 0, duration: dur, ended: false, error: null, paused: true, muted: true, preload: "metadata", plays: 0,
+      play: function () {
+        v.plays++;
+        if (v.blockedNow) return { then: function (a, b) { if (b) b(new Error("NotAllowedError")); } };
+        v.paused = false;
+        return { then: function (a) { if (a) a(); } };
+      },
+      pause: function () { v.paused = true; } });
+    v.blockedNow = !!blocked;
+    v.run = function (sec) { if (!v.paused) { v.currentTime = Math.min(v.duration, v.currentTime + sec); if (v.currentTime >= v.duration) v.ended = true; } };
+    elements[id] = v;
+    return v;
   }
   const savedImgs = ZC.Maps.images;
   ZC.Maps.images = {};
@@ -768,14 +725,34 @@ ok(ZC.Boot.phase === "idle", "en modo test la entrada no arranca sola");
   elements["boot-logo"] = logo;
   ZC.lobbyOpen = false;
   getEl("lobby-screen").hidden = true;
-  ZC.Boot.start({ manual: true, timing: { splash: 1.4, minLoad: 0.9, readyHold: 0.8, maxWait: 9 } });
-  ok(ZC.Boot.phase === "splash" && !getEl("boot-screen").hidden, "al abrir: presentación con el logo visible");
+  const T = { minLoad: 0.9, readyHold: 0.8, maxWait: 9, videoStart: 6, videoStall: 3.5, videoMax: 16, creditAt: 3.2 };
+  let creator = fakeVideo("boot-video-creator", 10, false);
+  let intro = fakeVideo("boot-video-intro", 6, false);
+  ZC.Boot.start({ manual: true, timing: T });
+  ok(ZC.Boot.phase === "creator" && !getEl("boot-screen").hidden, "al abrir: primero el video del creador");
+  ok(!creator.paused && creator.muted && creator.plays === 1, "el video del creador arranca solo y sin sonido");
+  ok(!creator.hidden && intro.hidden, "solo se ve el video del creador");
+  ok(intro.preload === "auto", "mientras tanto la intro ya se va bajando");
   ok(ZC.Boot.items.length === ZC.Maps.list().length + 1, "la carga espera los fondos de cada mapa y el logo", String(ZC.Boot.items.length));
   ok(getEl("app").classList.contains("booting"), "#app.booting durante la entrada (el aviso de girar espera)");
-  ZC.Boot.step(0.5);
-  ok(ZC.Boot.phase === "splash", "la presentación dura un momento");
-  ZC.Boot.step(1.0);
-  ok(ZC.Boot.phase === "loading", "luego pasa a la pantalla de carga");
+  function run(sec, v) { for (let t = 0; t < sec - 1e-9; t += 0.05) { if (v) v.run(0.05); ZC.Boot.step(0.05); } }
+  run(1.0, creator);
+  ok(!getEl("boot-credit").hidden && !getEl("boot-credit").classList.contains("on"), "la firma espera un momento antes de aparecer");
+  run(2.6, creator);
+  ok(getEl("boot-credit").classList.contains("on"), "luego aparece la firma «Amilthon» (suave, por CSS)");
+  ok(ZC.Boot.phase === "creator", "el video del creador sigue mientras se reproduce");
+  ZC.Boot.tap();
+  ok(ZC.Boot.phase === "creator" && ZC.Boot.sound && !creator.muted, "el primer toque activa el sonido y no salta el video");
+  run(7, creator);
+  ok(ZC.Boot.phase === "intro", "al terminar el creador pasa a la intro", ZC.Boot.phase);
+  ok(creator.paused && creator.hidden && !intro.paused && !intro.hidden, "se pausa y oculta el creador; arranca la intro");
+  ok(!intro.muted, "tras el toque la intro ya suena");
+  ok(getEl("boot-credit").hidden, "la firma solo va en el video del creador");
+  run(1.0, intro);
+  ok(ZC.Boot.skipFilm() === "loading", "«Saltar» pasa de la intro a la carga");
+  ok(intro.paused && intro.hidden, "la intro se detiene al saltarla");
+  ok(ZC.Boot.skipped.length === 0, "nada se saltó por error", ZC.Boot.skipped.join(","));
+  fakes.forEach(function (f) { f.complete = false; f.naturalWidth = 0; });
   for (let i = 0; i < 40; i++) ZC.Boot.step(0.05);
   ok(ZC.Boot.phase === "loading" && ZC.Boot.shown === 0, "sin nada cargado la barra no avanza (no miente)", ZC.Boot.shown);
   fakes[0].finish(); fakes[1].finish();
@@ -796,21 +773,52 @@ ok(ZC.Boot.phase === "idle", "en modo test la entrada no arranca sola");
   ok(getEl("title-screen").hidden, "el menú viejo no se interpone");
   if (ZC.closeLobby) ZC.closeLobby();
 
-  // Toque para acortar y tope de espera
+  // Videos que fallan: nunca se cuelga
   ZC.Boot.phase = "idle";
+  creator = fakeVideo("boot-video-creator", 10, true);   // el navegador no deja reproducir
+  intro = fakeVideo("boot-video-intro", 6, false);
+  ZC.Boot.start({ manual: true, timing: T });
+  ok(ZC.Boot.phase === "creator" && ZC.Boot.film.blocked, "si el navegador bloquea el video, lo detecta");
+  ok(!getEl("boot-hint").hidden, "y muestra un botón de play para tocar");
+  run(T.videoStart + 0.1, creator);
+  ok(ZC.Boot.phase === "intro" && /creator:blocked/.test(ZC.Boot.skipped.join(",")), "si nadie toca, se salta solo tras unos segundos", ZC.Boot.skipped.join(","));
+  run(2, intro);
+  intro.pause(); // se traba a mitad (red lenta)
+  run(T.videoStall + 0.1, intro);
+  ok(ZC.Boot.phase === "loading" && /intro:stall/.test(ZC.Boot.skipped.join(",")), "un video trabado se salta y sigue la carga", ZC.Boot.skipped.join(","));
+  // Error de carga y video que no existe
+  ZC.Boot.phase = "idle";
+  creator = fakeVideo("boot-video-creator", 10, false);
+  creator.error = { code: 4 };
+  delete elements["boot-video-intro"];
+  ZC.Boot.start({ manual: true, timing: T });
+  ZC.Boot.step(0.05); ZC.Boot.step(0.05);
+  ok(ZC.Boot.phase === "loading" && /intro:missing/.test(ZC.Boot.skipped.join(",")), "si un video da error o falta, se pasa directo a lo siguiente", ZC.Boot.phase + " " + ZC.Boot.skipped.join(","));
+  // Tope de espera de la carga
   fakes.forEach(function (f) { f.complete = false; f.naturalWidth = 0; });
-  ZC.Boot.start({ manual: true });
-  ok(ZC.Boot.tap() === "loading", "un toque en la presentación pasa a la carga");
+  ZC.Boot.collect();
   for (let i = 0; i < 200 && ZC.Boot.phase === "loading"; i++) ZC.Boot.step(0.1);
   ok(ZC.Boot.phase === "ready" && ZC.Boot.timedOut && ZC.Boot.shown < 1, "si algo no carga, no se cuelga: entra tras maxWait sin fingir 100 %", ZC.Boot.phase + " " + ZC.Boot.shown);
   ok(/siguen cargando/.test(getEl("boot-status").textContent), "y lo dice en el estado", getEl("boot-status").textContent);
   ok(ZC.Boot.tap() === "done" && ZC.lobbyOpen, "con la carga lista, un toque entra al lobby");
   if (ZC.closeLobby) ZC.closeLobby();
+  // Juego en silencio (M): el toque no enciende el sonido de los videos
+  ZC.Boot.phase = "idle";
+  creator = fakeVideo("boot-video-creator", 10, false);
+  intro = fakeVideo("boot-video-intro", 6, false);
+  ZC.muted = true;
+  ZC.Boot.start({ manual: true, timing: T });
+  ZC.Boot.tap();
+  ok(!ZC.Boot.sound && creator.muted, "con el juego en silencio los videos siguen sin sonido");
+  ZC.muted = false;
+  ZC.Boot.skipFilm(); ZC.Boot.skipFilm();
+  ok(ZC.Boot.phase === "loading", "dos «Saltar» llevan a la carga");
   ZC.Boot.phase = "idle";
   ZC.__test.skipBoot();
   ok(ZC.Boot.phase === "done" && ZC.lobbyOpen, "skipBoot entra directo al lobby");
   if (ZC.closeLobby) ZC.closeLobby();
   ZC.Maps.images = savedImgs;
+  delete elements["boot-video-creator"]; delete elements["boot-video-intro"];
   if (savedLogo) elements["boot-logo"] = savedLogo; else delete elements["boot-logo"];
   getEl("title-screen").hidden = false;
 })();

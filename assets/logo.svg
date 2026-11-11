@@ -1,21 +1,102 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <title>Zona Cero</title>
-  <rect width="128" height="128" rx="24" fill="#1d1811"/>
-  <rect x="3" y="3" width="122" height="122" rx="21" fill="none" stroke="#3a3122" stroke-width="2"/>
-  <!-- Anillo de la zona que se cierra -->
-  <circle cx="64" cy="64" r="49" fill="none" stroke="#d9a24a" stroke-width="5" stroke-dasharray="22 5.66"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+  <title>Zona Cero - Logo Multitemporal</title>
+  <defs>
+    <linearGradient id="pastGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#c46a3a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b4513;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="timeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e8b84a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c48a2a;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="presentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7b5ca8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4a2d6b;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="futureGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3a9ad4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a5a8a;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Fondo -->
+  <rect width="800" height="800" rx="140" fill="#141210"/>
+  <rect x="12" y="12" width="776" height="776" rx="128" fill="none" stroke="#3a3228" stroke-width="8"/>
+
   <!-- Marcas de mira -->
-  <g stroke="#c9b98a" stroke-width="4" stroke-linecap="square">
-    <line x1="64" y1="5" x2="64" y2="13"/>
-    <line x1="64" y1="115" x2="64" y2="123"/>
-    <line x1="5" y1="64" x2="13" y2="64"/>
-    <line x1="115" y1="64" x2="123" y2="64"/>
+  <g stroke="#d4c8a0" stroke-width="20" stroke-linecap="square">
+    <line x1="400" y1="30" x2="400" y2="70"/>
+    <line x1="400" y1="730" x2="400" y2="770"/>
+    <line x1="30" y1="400" x2="70" y2="400"/>
+    <line x1="730" y1="400" x2="770" y2="400"/>
   </g>
-  <!-- Disco oliva -->
-  <circle cx="64" cy="64" r="40" fill="#5f6b48"/>
-  <circle cx="64" cy="64" r="40" fill="none" stroke="#2a2c20" stroke-width="3"/>
-  <!-- Z de plantilla (stencil) -->
-  <path d="M41 41 H87 V51 L57 78 H87 V88 H41 V78 L71 51 H41 Z" fill="#efe6d2"/>
-  <rect x="61" y="40" width="4" height="12" fill="#5f6b48"/>
-  <rect x="63" y="77" width="4" height="12" fill="#5f6b48"/>
+
+  <!-- Anillos de color (más grandes y proporcionales) -->
+  <!-- Pasado - Marrón -->
+  <path d="M400 110 A290 290 0 0 1 690 400 L620 400 A220 220 0 0 0 400 180 Z" fill="url(#pastGrad)"/>
+  <!-- Línea temporal - Dorado -->
+  <path d="M690 400 A290 290 0 0 1 400 690 L400 620 A220 220 0 0 0 620 400 Z" fill="url(#timeGrad)"/>
+  <!-- Presente - Violeta -->
+  <path d="M400 690 A290 290 0 0 1 110 400 L180 400 A220 220 0 0 0 400 620 Z" fill="url(#presentGrad)"/>
+  <!-- Futuro - Azul -->
+  <path d="M110 400 A290 290 0 0 1 400 110 L400 180 A220 220 0 0 0 180 400 Z" fill="url(#futureGrad)"/>
+
+  <!-- Disco central -->
+  <circle cx="400" cy="400" r="210" fill="#4f5c42"/>
+  <circle cx="400" cy="400" r="210" fill="none" stroke="#2c3220" stroke-width="12"/>
+
+  <!-- Z grande -->
+  <path d="M270 250 H530 V300 L340 500 H530 V550 H270 V500 L460 300 H270 Z" fill="#f4ead8"/>
+
+  <!-- === ELEMENTOS POR SECTOR === -->
+
+  <!-- PASADO: Machu Picchu simplificado pero reconocible -->
+  <g fill="none" stroke="#6b3a1a" stroke-width="4" opacity="0.85">
+    <!-- Montañas -->
+    <path d="M160 280 Q220 180 280 260 Q340 140 400 240"/>
+    <path d="M180 300 Q230 220 280 290"/>
+    <!-- Ruinas / terrazas -->
+    <path d="M200 320 L240 280 L280 320 L320 290 L360 330"/>
+    <rect x="230" y="300" width="40" height="20" fill="none"/>
+    <rect x="280" y="310" width="30" height="15" fill="none"/>
+  </g>
+
+  <!-- LÍNEA TEMPORAL: Vampiros + monstruo detrás -->
+  <g stroke="#5a3a1a" fill="none" stroke-width="3.5" opacity="0.9">
+    <!-- Monstruo de fondo -->
+    <path d="M560 160 Q600 120 640 170 Q680 140 700 190" opacity="0.5"/>
+    <path d="M580 200 Q620 160 660 210" opacity="0.4"/>
+    <!-- Vampiro 1 -->
+    <circle cx="600" cy="200" r="22"/>
+    <path d="M578 230 Q600 280 622 230"/>
+    <path d="M590 195 L595 210 M605 195 L610 210"/> <!-- ojos -->
+    <!-- Vampiro 2 -->
+    <circle cx="660" cy="220" r="20"/>
+    <path d="M640 250 Q660 295 680 250"/>
+    <path d="M650 215 L655 228 M665 215 L670 228"/>
+  </g>
+
+  <!-- PRESENTE: Skyline de ciudad -->
+  <g fill="none" stroke="#3a2060" stroke-width="3" opacity="0.75">
+    <path d="M140 520 L155 460 L170 520"/>
+    <path d="M180 520 L200 420 L220 520"/>
+    <path d="M230 520 L245 480 L260 520"/>
+    <path d="M270 520 L290 440 L310 520"/>
+    <path d="M320 520 L335 490 L350 520"/>
+    <rect x="190" y="480" width="20" height="40" fill="none"/>
+    <rect x="280" y="460" width="15" height="60" fill="none"/>
+  </g>
+
+  <!-- FUTURO: Robots elegantes estilo Arcane (simplificados) -->
+  <g fill="none" stroke="#1a4a70" stroke-width="4">
+    <!-- Robot alto -->
+    <path d="M580 480 L600 420 L620 480 L610 560 L590 560 Z"/>
+    <circle cx="600" cy="400" r="18"/>
+    <path d="M585 395 L600 385 L615 395"/> <!-- casco -->
+    <path d="M590 450 L610 450 M595 480 L605 480"/> <!-- detalles dorados -->
+    <!-- Robot más bajo -->
+    <path d="M640 500 L655 450 L670 500 L662 570 L648 570 Z"/>
+    <circle cx="655" cy="435" r="14"/>
+    <path d="M645 430 L655 422 L665 430"/>
+  </g>
 </svg>

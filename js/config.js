@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — configuración numérica
+   ZCero — configuración numérica
    Contrato: Define ZC.CFG, ZC.BOT_NAMES y ZC.BOT_COLORS. Otros módulos leen, no reescriben, salvo que cambies un valor de diseño.
    Depende de: js/zc.js
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.

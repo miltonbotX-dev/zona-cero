@@ -1,5 +1,5 @@
 /* ============================================================================
-   Zona Cero — audio procedural
+   ZCero — audio procedural
    Contrato: Web Audio sintético, silenciable (ZC.muted). No usa archivos de sonido. toggleMute y sfx.
    Depende de: js/zc.js
    Edición en paralelo: una persona en este archivo. Sin Git no hay fusión automática.
@@ -18,9 +18,12 @@
   ZC.toggleMute = function () {
     ZC.muted = !ZC.muted;
     if (ZC.hudMuteBtn) {
-      // Sin emojis: el mismo símbolo, tachado por CSS (.off) cuando está en silencio
-      ZC.hudMuteBtn.textContent = "♪";
+      // Ícono SVG: el CSS (.off) cambia el parlante por el parlante tachado
       if (ZC.hudMuteBtn.classList) ZC.hudMuteBtn.classList.toggle("off", !!ZC.muted);
+      if (ZC.hudMuteBtn.setAttribute) {
+        ZC.hudMuteBtn.setAttribute("aria-label", ZC.muted ? "Activar sonido" : "Silenciar");
+        ZC.hudMuteBtn.setAttribute("title", ZC.muted ? "Activar sonido (M)" : "Silenciar audio (M)");
+      }
     }
     if (!ZC.muted) ZC.unlockAudio();
   }

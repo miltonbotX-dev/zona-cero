@@ -40,9 +40,9 @@ No reemplaces los arrays (`ZC.actors = []`): vacíalos con `.length = 0` (así l
 - **audio:** `sfx`, `toggleMute`, `unlockAudio`.
 - **appearance:** forma del personaje (`ZC.Appearance.draw`, `register`, `get`, `list`). No decide daño ni input.
 - **render:** cámara (`camFeetRatio`, `camMaxY`), escenario, proyectiles, zona y HUD (`hudLayout`). Llama a `ZC.Appearance.draw` para el cuerpo y a `drawDropWorld` / `drawDropHUD` durante la caída.
-- **ui:** overlays DOM (`hidden` + clase `active`). `ZC.UI.screens` incluye `boot`, `title`, `lobby` y `result`. También `setInMatch` (clase `#app.in-match`) y la pantalla completa (`requestFullscreen`, `toggleFullscreen`).
+- **ui:** nombre del juego (`ZC.applyBrand`, lee `ZC.BRAND` de `js/zc.js`), íconos (`ZC.icon(nombre)`, dibujos `<symbol id="i-...">` en `index.html`), overlays DOM (`hidden` + clase `active`). `ZC.UI.screens` incluye `boot`, `title`, `lobby` y `result`. También `setInMatch` (clase `#app.in-match`) y la pantalla completa (`requestFullscreen`, `toggleFullscreen`).
 - **lobby:** perfil, sala, paneles (mochila, aspecto, mapa, ajustes) y `startFromLobby`. La vista previa (`drawLobbyPreview`, `lobbyPreviewPose`) muestra al personaje quieto con su arma y un disparo de muestra cada `ZC.LOBBY_SHOT_EVERY` segundos.
-- **boot:** entrada al abrir la página (`ZC.Boot`): presentación con logo, carga real y paso al lobby. Ver «Entrada» más abajo.
+- **boot:** entrada al abrir la página (`ZC.Boot`): video del creador, video de intro, carga real y paso al lobby. Ver «Entrada» más abajo.
 - **game:** `startMatch`, `endMatch`, `update`, `loop`, `mount`, API pública y `ZC.__test`.
 
 ## Puntos de extensión
@@ -78,11 +78,13 @@ No reemplaces los arrays (`ZC.actors = []`): vacíalos con `.length = 0` (así l
 - Al terminar, `ZC.Drop.state.go` (0.9 s) muestra «A COMBATIR». En ese rato el jugador ya juega y los bots esperan quietos.
 - `ZC.state` sigue siendo `"playing"` durante la caída (las pruebas y el resto del código no cambian). `getState().drop` informa `on`, `count`, `t` y `dur`. `ZC.__test.skipDrop()` la salta. Con `ZC.CFG.dropTime = 0` no hay caída.
 
-## Entrada: logo, carga y lobby (v1.5)
+## Entrada: videos, carga y lobby (v1.6)
 
 - Al abrir la página se ve `#boot-screen` (en `index.html`, antes del menú). `game.js` → `mount()` llama `ZC.Boot.start()`.
 - Fases (`ZC.Boot.phase`, también en `data-phase` del overlay para el CSS):
-  1. `splash`: logo (`assets/logo.svg`), «Zona Cero» y una línea. Dura `timing.splash` (1.4 s); un toque o Enter la acorta.
+  1. `creator`: `#boot-video-creator` (`assets/creadorAmilthon.mp4`, 16:9, fondo gris igual al del video) con `#boot-credit` («Creado por» + `ZC.BRAND.creator`), que aparece a `timing.creditAt` (3.2 s).
+  1b. `intro`: `#boot-video-intro` (`assets/intro.mp4`, cuadrado, sobre negro). El orden sale de `ZC.Boot.FILMS`.
+     Los videos arrancan `muted` + `playsinline`. `tap()` activa el sonido (si `ZC.muted` es falso) sin saltar; `skipFilm()` (botón «Saltar», Enter, Esc o espacio) pasa al siguiente. `stepFilm()` salta solo si hay `error`, si falta el elemento, si no arranca en `timing.videoStart` (6 s), si se congela `timing.videoStall` (3.5 s) o pasa `timing.videoMax`; lo anota en `ZC.Boot.skipped`.
   2. `loading`: barra y porcentaje. Espera de verdad el logo y la imagen de fondo de cada mapa (`ZC.Maps.images`). `progress()` = terminados / total; una imagen que falla cuenta como terminada porque el mapa tiene su degradado `bgFallback`. La barra (`shown`) sube suave pero **nunca** pasa de `progress()`. Dura al menos `timing.minLoad` (0.9 s).
   3. `ready`: 100 % y «Toca para entrar». Pasa sola tras `timing.readyHold` (0.8 s).
   4. `done`: oculta la carga y llama `ZC.openLobby()`.

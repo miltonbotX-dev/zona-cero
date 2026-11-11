@@ -86,17 +86,30 @@ with sync_playwright() as p:
     logs = collect_console(page)
     page.goto(URL, wait_until="networkidle")
     page.wait_for_timeout(300)
-    # --- Entrada v1.6: video del creador -> intro -> carga -> lobby ---
-    boot0 = page.evaluate("() => ({ phase: ZC.Boot.phase, visible: !document.getElementById('boot-screen').hidden, title: !document.getElementById('title-screen').hidden, lobby: !!ZC.lobbyOpen })")
-    ok(boot0["phase"] == "creator" and boot0["visible"] and not boot0["title"] and not boot0["lobby"],
-       "al abrir se ve el video del creador (no el menú ni el lobby)", json.dumps(boot0))
-    page.wait_for_function("() => document.getElementById('boot-video-creator').currentTime > 0.3", timeout=8000)
-    vid = page.evaluate("""() => { const v = document.getElementById('boot-video-creator'); const r = v.getBoundingClientRect();
+    # --- Entrada v1.7: intro del logo -> video del creador -> carga -> lobby (sin botones) ---
+    boot0 = page.evaluate("() => ({ phase: ZC.Boot.phase, visible: !document.getElementById('boot-screen').hidden, title: !document.getElementById('title-screen').hidden, lobby: !!ZC.lobbyOpen, rot: getComputedStyle(document.getElementById('portrait-warn')).display })")
+    ok(boot0["phase"] == "intro" and boot0["visible"] and not boot0["title"] and not boot0["lobby"],
+       "al abrir se ve primero la intro del logo (no el menú ni el lobby)", json.dumps(boot0))
+    ok(boot0["rot"] == "none", "en PC nunca sale el aviso de girar", boot0["rot"])
+    page.wait_for_function("() => document.getElementById('boot-video-intro').currentTime > 0.3", timeout=8000)
+    vid = page.evaluate("""() => { const v = document.getElementById('boot-video-intro'); const r = v.getBoundingClientRect();
       return { t: v.currentTime, muted: v.muted, paused: v.paused, w: v.videoWidth, h: v.videoHeight, fit: getComputedStyle(v).objectFit,
-               vis: r.width > 0 && !v.hidden, introHidden: document.getElementById('boot-video-intro').hidden }; }""")
-    ok(vid["t"] > 0.3 and not vid["paused"] and vid["muted"] and vid["w"] == 1280, "el video del creador se reproduce solo y sin sonido", json.dumps(vid))
-    ok(vid["vis"] and vid["introHidden"] and vid["fit"] == "contain", "solo se ve el creador, entero (contain)", json.dumps(vid))
-    ok(page.locator("#boot-skip").is_visible() and page.locator("#boot-sound").is_visible(), "botones Saltar y sonido visibles")
+               vis: r.width > 0 && !v.hidden, creatorHidden: document.getElementById('boot-video-creator').hidden, credit: document.getElementById('boot-credit').hidden }; }""")
+    ok(vid["t"] > 0.3 and not vid["paused"] and vid["muted"] and vid["w"] == 544, "la intro (cuadrada) se reproduce sola y sin sonido", json.dumps(vid))
+    ok(vid["vis"] and vid["creatorHidden"] and vid["fit"] == "contain" and vid["credit"], "solo se ve la intro, entera y sin firma", json.dumps(vid))
+    nbtn = page.evaluate("() => [...document.querySelectorAll('#boot-screen button, #boot-screen [role=button]')].filter(b => b.getBoundingClientRect().width > 0).length")
+    ok(nbtn == 0, "sobre los videos no hay botones (ni Saltar ni sonido)", str(nbtn))
+    page.screenshot(path=str(SHOTS / "desktop-boot-intro.png"))
+    page.mouse.click(640, 360)
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(200)
+    ph = page.evaluate("() => ({ phase: ZC.Boot.phase, sound: ZC.Boot.sound, muted: document.getElementById('boot-video-intro').muted, paused: document.getElementById('boot-video-intro').paused })")
+    ok(ph["phase"] == "intro" and ph["sound"] and not ph["muted"] and not ph["paused"], "un clic activa el sonido y no salta; Esc tampoco salta", json.dumps(ph))
+    page.wait_for_function("() => ZC.Boot.phase === 'creator'", timeout=12000)
+    ok(not page.evaluate("() => ZC.Boot.skipped.length"), "la intro terminó sola y pasó al creador", page.evaluate("() => ZC.Boot.skipped.join(',')"))
+    page.wait_for_function("() => document.getElementById('boot-video-creator').currentTime > 0.3", timeout=8000)
+    cv = page.evaluate("() => { const v = document.getElementById('boot-video-creator'); return { paused: v.paused, muted: v.muted, w: v.videoWidth, introHidden: document.getElementById('boot-video-intro').hidden }; }")
+    ok(not cv["paused"] and not cv["muted"] and cv["w"] == 1280 and cv["introHidden"], "luego el video del creador, ya con sonido", json.dumps(cv))
     page.wait_for_function("() => document.getElementById('boot-credit').classList.contains('on')", timeout=8000)
     page.wait_for_timeout(1300)
     cred = page.evaluate("""() => { const c = document.querySelector('.boot-credit-name'); const r = c.getBoundingClientRect();
@@ -104,17 +117,10 @@ with sync_playwright() as p:
     ok(cred["text"] == "Amilthon" and float(cred["op"]) > 0.9 and cred["b"] <= 720 and cred["y"] > 720 * 0.8,
        "la firma «Amilthon» aparece abajo, bajo el dibujo", json.dumps(cred))
     page.screenshot(path=str(SHOTS / "desktop-boot-creator.png"))
-    page.click("#boot-skip")
-    page.wait_for_timeout(200)
-    ph = page.evaluate("() => ({ phase: ZC.Boot.phase, creatorPaused: document.getElementById('boot-video-creator').paused, sound: ZC.Boot.sound, introMuted: document.getElementById('boot-video-intro').muted })")
-    ok(ph["phase"] == "intro" and ph["creatorPaused"], "«Saltar» pasa del creador a la intro", json.dumps(ph))
-    ok(ph["sound"] and not ph["introMuted"], "tras tocar, la intro ya suena", json.dumps(ph))
-    page.wait_for_function("() => document.getElementById('boot-video-intro').currentTime > 0.3", timeout=8000)
-    ok(page.evaluate("() => { const v = document.getElementById('boot-video-intro'); return !v.paused && v.videoWidth === 544 && document.getElementById('boot-credit').hidden; }"), "la intro (cuadrada) se reproduce y sin firma")
-    page.screenshot(path=str(SHOTS / "desktop-boot-intro.png"))
-    page.click("#boot-skip")
+    # Para no esperar el video entero en PC: pasar a la carga desde el código (no hay botón)
+    page.evaluate("() => ZC.Boot.skipFilm()")
     page.wait_for_timeout(120)
-    ok(page.evaluate("() => ZC.Boot.phase") in ("loading", "ready"), "un segundo «Saltar» lleva a la carga")
+    ok(page.evaluate("() => ZC.Boot.phase") in ("loading", "ready"), "tras el creador llega la carga")
     ok(page.locator("#boot-logo").is_visible() and page.evaluate("() => document.getElementById('boot-logo').naturalWidth > 0"), "en la carga el logo carga y se ve")
     page.screenshot(path=str(SHOTS / "desktop-boot-loading.png"))
     style = page.evaluate("""() => {
@@ -265,25 +271,36 @@ with sync_playwright() as p:
     page = ctx.new_page()
     logs = collect_console(page)
     page.goto(URL, wait_until="networkidle")
-    page.wait_for_timeout(200)
+    page.wait_for_timeout(1200)
     st = js_state(page)
-    ok(st.get("portraitDisplay") == "none", "en retrato el aviso de girar no tapa la presentación", st.get("portraitDisplay"))
-    page.screenshot(path=str(SHOTS / "phone-390x844-boot.png"), full_page=False)
-    # Sin tocar nada: los dos videos completos (~16 s) y luego la carga y el lobby
-    page.wait_for_function("() => document.getElementById('boot-credit').classList.contains('on')", timeout=10000)
-    page.wait_for_timeout(1300)
-    pc = page.evaluate("""() => { const v = document.getElementById('boot-video-creator'); const vr = v.getBoundingClientRect();
-      const H = Math.min(vr.height, vr.width * v.videoHeight / v.videoWidth); const vb = vr.y + (vr.height + H) / 2;
-      const c = document.getElementById('boot-credit').getBoundingClientRect(); return { videoBottom: vb, creditTop: c.y, creditBottom: c.y + c.height }; }""")
-    ok(pc["creditTop"] >= pc["videoBottom"] - 2 and pc["creditBottom"] < 844, "en retrato la firma va bajo el video sin taparlo", json.dumps(pc))
-    page.screenshot(path=str(SHOTS / "phone-390x844-creator.png"), full_page=False)
-    page.wait_for_function("() => ZC.Boot.phase === 'intro'", timeout=14000)
-    ok(not page.evaluate("() => ZC.Boot.skipped.length"), "el creador terminó solo y pasó a la intro", page.evaluate("() => ZC.Boot.skipped.join(',')"))
+    ok(st.get("portraitDisplay") == "flex", "en vertical sale «Gira tu celular» desde el inicio", st.get("portraitDisplay"))
+    rot = page.evaluate("""() => { const w = document.getElementById('portrait-warn'); const r = w.getBoundingClientRect(); const v = document.getElementById('boot-video-intro');
+      const top = document.elementFromPoint(195, 422);
+      return { w: r.width, h: r.height, z: getComputedStyle(w).zIndex, onTop: w.contains(top), svg: !!w.querySelector('svg.rotate-art'), text: w.innerText,
+               phase: ZC.Boot.phase, held: ZC.Boot.held, paused: v.paused, t: v.currentTime, skipped: ZC.Boot.skipped.join(',') }; }""")
+    ok(rot["w"] >= 389 and rot["h"] >= 843 and rot["onTop"] and rot["svg"] and "GIRA TU CELULAR" in rot["text"].upper(), "el aviso tapa toda la pantalla con su dibujo", json.dumps(rot))
+    ok(rot["phase"] == "intro" and rot["held"] and rot["paused"] and rot["t"] < 0.2 and not rot["skipped"], "la entrada espera en pausa (no se pierde la intro)", json.dumps(rot))
+    page.screenshot(path=str(SHOTS / "v17-rotate-390x844.png"), full_page=False)
+    page.wait_for_timeout(2500)
+    still = page.evaluate("() => ({ phase: ZC.Boot.phase, held: ZC.Boot.held, t: document.getElementById('boot-video-intro').currentTime, skipped: ZC.Boot.skipped.join(',') })")
+    ok(still["phase"] == "intro" and still["held"] and still["t"] < 0.2 and not still["skipped"], "pasan los segundos y sigue esperando sin saltarse nada", json.dumps(still))
+    page.locator("#portrait-warn").tap()
+    page.wait_for_timeout(200)
+    ok(page.evaluate("() => ZC.Boot.phase === 'intro' && ZC.Boot.held"), "tocar el aviso no salta nada")
+    # Girar a horizontal: la entrada arranca
+    page.set_viewport_size({"width": 844, "height": 390})
+    page.wait_for_function("() => document.getElementById('boot-video-intro').currentTime > 0.3", timeout=8000)
+    st = js_state(page)
+    ok(st.get("portraitDisplay") == "none" and not page.evaluate("() => ZC.Boot.held"), "al girar se quita el aviso y arranca la intro", st.get("portraitDisplay"))
+    page.wait_for_function("() => ZC.Boot.phase === 'creator'", timeout=12000)
+    ok(not page.evaluate("() => ZC.Boot.skipped.length"), "la intro terminó sola y pasó al creador", page.evaluate("() => ZC.Boot.skipped.join(',')"))
     page.wait_for_function("() => ZC.lobbyOpen", timeout=20000)
-    ok(not page.evaluate("() => ZC.Boot.skipped.length"), "la intro terminó sola y entró al lobby", page.evaluate("() => ZC.Boot.skipped.join(',')"))
-    page.wait_for_timeout(200)
+    ok(not page.evaluate("() => ZC.Boot.skipped.length"), "el creador terminó solo y entró al lobby", page.evaluate("() => ZC.Boot.skipped.join(',')"))
+    # De vuelta a vertical en el lobby
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.wait_for_timeout(300)
     st = js_state(page)
-    ok(st.get("portraitDisplay") == "flex", "aviso de girar a horizontal en retrato (después de la carga)", st.get("portraitDisplay"))
+    ok(st.get("portraitDisplay") == "flex", "en el lobby en vertical vuelve el aviso de girar", st.get("portraitDisplay"))
     # force-enable touch UI to measure controls even under the warning
     page.evaluate("() => { if (window.ZC && ZC.enableTouch) ZC.enableTouch(); }")
     page.wait_for_timeout(100)
@@ -318,25 +335,25 @@ with sync_playwright() as p:
     page.wait_for_timeout(500)
     st = js_state(page)
     ok(st.get("portraitDisplay") == "none", "sin aviso de rotación en horizontal", st.get("portraitDisplay"))
-    page.wait_for_function("() => document.getElementById('boot-video-creator').currentTime > 0.3", timeout=8000)
-    page.wait_for_function("() => document.getElementById('boot-credit').classList.contains('on')", timeout=8000)
-    page.wait_for_timeout(1300)
-    c = page.evaluate("""() => { const r = document.getElementById('boot-credit').getBoundingClientRect(); const s = document.querySelector('.boot-film-ctrl').getBoundingClientRect();
-      return { top: r.y, bottom: r.y + r.height, ctrlTop: s.y, ctrlRight: s.x + s.width, phase: ZC.Boot.phase }; }""")
-    ok(c["phase"] == "creator" and c["bottom"] <= 390 and c["top"] > 390 * 0.8 and c["ctrlTop"] >= 0 and c["ctrlRight"] <= 844,
-       "en 844x390 la firma queda abajo y los botones dentro de la pantalla", json.dumps(c))
-    page.screenshot(path=str(SHOTS / "phone-844x390-boot-creator.png"))
+    page.wait_for_function("() => document.getElementById('boot-video-intro').currentTime > 2.2", timeout=10000)
+    nbtn = page.evaluate("() => [...document.querySelectorAll('#boot-screen button')].filter(b => b.getBoundingClientRect().width > 0).length + (document.getElementById('boot-skip') ? 1 : 0)")
+    ok(nbtn == 0 and page.evaluate("() => ZC.Boot.phase") == "intro", "en el celular la intro se ve sin botones encima", str(nbtn))
+    page.screenshot(path=str(SHOTS / "v17-intro.png"))
+    page.screenshot(path=str(SHOTS / "phone-844x390-boot-intro.png"))
     page.locator("#boot-screen").tap(position={"x": 300, "y": 200})
     page.wait_for_timeout(200)
-    t1 = page.evaluate("() => ({ phase: ZC.Boot.phase, sound: ZC.Boot.sound, muted: document.getElementById('boot-video-creator').muted })")
-    ok(t1["phase"] == "creator" and t1["sound"] and not t1["muted"], "el primer toque activa el sonido sin saltar el video", json.dumps(t1))
-    page.locator("#boot-skip").tap()
-    page.wait_for_function("() => document.getElementById('boot-video-intro').currentTime > 0.5", timeout=8000)
-    page.screenshot(path=str(SHOTS / "phone-844x390-boot-intro.png"))
-    iv = page.evaluate("() => { const r = document.getElementById('boot-video-intro').getBoundingClientRect(); return { phase: ZC.Boot.phase, w: r.width, h: r.height }; }")
-    ok(iv["phase"] == "intro", "Saltar en el celular pasa a la intro", json.dumps(iv))
-    page.locator("#boot-skip").tap()
-    page.wait_for_timeout(150)
+    t1 = page.evaluate("() => ({ phase: ZC.Boot.phase, sound: ZC.Boot.sound, muted: document.getElementById('boot-video-intro').muted })")
+    ok(t1["phase"] == "intro" and t1["sound"] and not t1["muted"], "el primer toque activa el sonido sin saltar el video", json.dumps(t1))
+    page.wait_for_function("() => ZC.Boot.phase === 'creator'", timeout=10000)
+    page.wait_for_function("() => document.getElementById('boot-credit').classList.contains('on')", timeout=8000)
+    page.wait_for_timeout(1300)
+    c = page.evaluate("""() => { const r = document.getElementById('boot-credit').getBoundingClientRect();
+      return { top: r.y, bottom: r.y + r.height, phase: ZC.Boot.phase, skipped: ZC.Boot.skipped.join(',') }; }""")
+    ok(c["phase"] == "creator" and c["bottom"] <= 390 and c["top"] > 390 * 0.8 and not c["skipped"],
+       "en 844x390 sigue el creador con la firma abajo", json.dumps(c))
+    page.screenshot(path=str(SHOTS / "v17-creator.png"))
+    page.screenshot(path=str(SHOTS / "phone-844x390-boot-creator.png"))
+    page.wait_for_function("() => ZC.Boot.phase === 'loading' || ZC.Boot.phase === 'ready' || ZC.Boot.phase === 'done'", timeout=12000)
     brand = page.evaluate("""() => { const r = document.querySelector('.boot-brand').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; }""")
     ok(brand["y"] >= 0 and brand["y"] + brand["h"] <= 390 and brand["x"] >= 0 and brand["x"] + brand["w"] <= 844, "el logo cabe en 844x390", json.dumps(brand))
     ph = page.evaluate("() => ZC.Boot.phase")
@@ -358,13 +375,18 @@ with sync_playwright() as p:
     page.screenshot(path=str(SHOTS / "phone-844x390-lobby.png"))
     lob = page.evaluate("""() => {
       const r = id => { const e = document.getElementById(id) || document.querySelector(id); const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; };
-      return { gear: r('lobby-gear-name').w > 0 ? r('.lobby-gear') : null, deploy: r('btn-deploy'), map: r('lobby-map-card'), dock: r('.lobby-dock'), stage: r('.lobby-stage') };
+      return { gear: r('lobby-gear-name').w > 0 ? r('.lobby-gear') : null, deploy: r('btn-deploy'), map: r('lobby-map-card'), dock: r('.lobby-dock'), stage: r('.lobby-stage'), modes: r('lobby-modes') };
     }""")
     def inter(a, b):
         return a["x"] < b["x"] + b["w"] and a["x"] + a["w"] > b["x"] and a["y"] < b["y"] + b["h"] and a["y"] + a["h"] > b["y"]
     ok(lob["gear"] and not inter(lob["gear"], lob["deploy"]) and not inter(lob["gear"], lob["map"]) and not inter(lob["gear"], lob["dock"]),
        "en 844x390 la ficha del arma no pisa Iniciar, el mapa ni los botones", json.dumps(lob))
     ok(not inter(lob["dock"], lob["deploy"]) and not inter(lob["dock"], lob["map"]), "botones del lobby sin solaparse", json.dumps(lob))
+    m = lob["modes"]
+    ok(m["w"] > 100 and m["h"] >= 30 and m["y"] >= 0 and m["x"] + m["w"] <= 844 and not inter(m, lob["map"]) and not inter(m, lob["deploy"]) and not inter(m, lob["gear"]) and m["y"] + m["h"] <= lob["map"]["y"] + 1,
+       "el selector de modo va justo encima del mapa sin pisar nada", json.dumps(lob))
+    modes0 = page.evaluate("() => ({ on: document.querySelector('#lobby-modes .on').getAttribute('data-mode'), icons: [...document.querySelectorAll('#lobby-modes button')].map(b => !!b.querySelector('svg.ico use') && !!b.getAttribute('aria-label')), kicker: document.getElementById('lobby-mode-kicker').textContent })")
+    ok(modes0["on"] == "classic" and all(modes0["icons"]) and len(modes0["icons"]) == 2 and modes0["kicker"] == "Clásico", "Clásico viene marcado; los dos modos con ícono", json.dumps(modes0))
     page.locator("#btn-deploy").tap()
     page.wait_for_timeout(400)
     st = js_state(page)
@@ -512,6 +534,64 @@ with sync_playwright() as p:
         info = page.evaluate("() => ({ map: ZC.map.id || ZC.profile.mapId, feet: ZC.player.y - ZC.cam.y, joyTop: document.getElementById('joy-left').getBoundingClientRect().y, dead: ZC.player.dead })")
         page.screenshot(path=str(SHOTS / f"phone-844x390-map-{map_id}.png"))
         ok(info["dead"] or info["feet"] < info["joyTop"] + 8, f"mapa {map_id}: jugador visible sobre los controles", json.dumps(info))
+    # --- v1.7: Modo entrenamiento ---
+    page.evaluate("() => { ZC.state = 'title'; ZC.setInMatch(false); ZC.openLobby(); }")
+    page.wait_for_timeout(200)
+    page.locator("#lobby-modes [data-mode=training]").tap()
+    page.wait_for_timeout(150)
+    md = page.evaluate("() => ({ mode: ZC.profile.mode, on: document.querySelector('#lobby-modes .on').getAttribute('data-mode'), kicker: document.getElementById('lobby-mode-kicker').textContent, saved: JSON.parse(localStorage.getItem('zona-cero-profile-v1')).mode })")
+    ok(md["mode"] == "training" and md["on"] == "training" and md["kicker"] == "Entrenamiento" and md["saved"] == "training", "tocar Entreno elige el modo entrenamiento (y se guarda)", json.dumps(md))
+    page.wait_for_function("() => (ZC.lobbyPreviewT % ZC.LOBBY_SHOT_EVERY) > ZC.LOBBY_SHOT_EVERY - 0.3 && (ZC.lobbyPreviewT % ZC.LOBBY_SHOT_EVERY) < ZC.LOBBY_SHOT_EVERY - 0.2", timeout=6000, polling=16)
+    page.screenshot(path=str(SHOTS / "v17-lobby-modes.png"))
+    page.locator("#btn-deploy").tap()
+    page.wait_for_timeout(300)
+    tr = page.evaluate("() => ({ training: ZC.getState().training, drop: ZC.getState().drop, cls: document.getElementById('app').className })")
+    ok(tr["training"] and "training" in tr["cls"] and tr["drop"]["on"] and abs(tr["drop"]["dur"] - 1.5) < 0.01, "Iniciar arranca el entrenamiento con caída corta", json.dumps(tr))
+    page.wait_for_function("() => !ZC.getState().drop.on", timeout=5000)
+    page.wait_for_timeout(1000)
+    # Juntar a los rivales alrededor del jugador y esperar: nadie le dispara
+    page.evaluate("() => { const P = ZC.player; ZC.actors.filter(a => !a.isPlayer).forEach((b, i) => { b.x = P.x + (i % 2 ? -1 : 1) * (70 + i * 25); b.y = P.y - 10; }); }")
+    shots = 0
+    for _ in range(8):
+        page.wait_for_timeout(400)
+        shots += page.evaluate("() => ZC.bullets.filter(b => b.owner && !b.owner.isPlayer).length")
+    st_t = page.evaluate("() => ({ hp: ZC.player.hp, max: ZC.player.maxHp, dead: ZC.player.dead, r: ZC.zone.r, dps: ZC.zone.dps, state: ZC.state, reserve: ZC.player.gun[ZC.player.gun.current].reserve })")
+    ok(shots == 0, "en entrenamiento los rivales no disparan", str(shots))
+    ok(st_t["hp"] == st_t["max"] and not st_t["dead"] and st_t["dps"] == 0 and st_t["r"] >= 5000 and st_t["reserve"] >= 900, "vida llena, sin zona y munición sin fin", json.dumps(st_t))
+    # Disparar a un rival hasta eliminarlo y ver que reaparece
+    kill = page.evaluate("""() => { const P = ZC.player; const b = ZC.actors.find(a => !a.isPlayer && !a.dead); const name = b.name;
+      ZC.applyDamage(b, 999, P, 'shot'); return { name, dead: b.dead, alive: ZC.match.alive, kills: ZC.match.playerKills }; }""")
+    ok(kill["dead"] and kill["kills"] >= 1, "se puede eliminar a un rival", json.dumps(kill))
+    page.wait_for_timeout(3200)
+    back = page.evaluate("(n) => { const b = ZC.actors.find(a => a.name === n); return { dead: b.dead, hp: b.hp, alive: ZC.match.alive, total: ZC.actors.length, end: !document.getElementById('end-screen').hidden, state: ZC.state }; }", kill["name"])
+    ok(not back["dead"] and back["alive"] == back["total"] and not back["end"] and back["state"] == "playing", "el rival reaparece y no hay pantalla de fin", json.dumps(back))
+    # HUD del entrenamiento: etiqueta y botón de salir sin pisar nada
+    hud = page.evaluate("""() => {
+      const L = ZC.__test.hudLayout(); const rects = {};
+      ['timer', 'minimap', 'top3', 'vitals'].forEach(k => rects['hud:' + k] = L[k]);
+      ['joy-left', 'joy-right', 'btn-jump', 'btn-reload', 'btn-swap', 'btn-mute', 'btn-full', 'btn-exit-training', 'training-tag'].forEach(id => {
+        const el = document.getElementById(id); const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0 && getComputedStyle(el).display !== 'none') rects[id] = { x: r.x, y: r.y, w: r.width, h: r.height };
+      });
+      return { rects, tag: document.getElementById('training-tag').innerText };
+    }""")
+    rects = hud["rects"]
+    names = list(rects.keys())
+    clashes = []
+    for i in range(len(names)):
+        for j in range(i + 1, len(names)):
+            a, b = rects[names[i]], rects[names[j]]
+            if a["x"] < b["x"] + b["w"] and a["x"] + a["w"] > b["x"] and a["y"] < b["y"] + b["h"] and a["y"] + a["h"] > b["y"]:
+                clashes.append(names[i] + "/" + names[j])
+    ok("training-tag" in rects and "btn-exit-training" in rects and hud["tag"].strip().upper() == "ENTRENAMIENTO", "se ven la etiqueta ENTRENAMIENTO y el botón de salir", json.dumps(hud))
+    ok(not clashes, "HUD del entrenamiento sin solaparse en 844x390", ", ".join(clashes) + " " + json.dumps(rects))
+    page.wait_for_timeout(300)
+    page.screenshot(path=str(SHOTS / "v17-training.png"))
+    page.locator("#btn-exit-training").tap()
+    page.wait_for_timeout(300)
+    out = page.evaluate("() => ({ state: ZC.state, lobby: ZC.lobbyOpen, end: !document.getElementById('end-screen').hidden, cls: document.getElementById('app').className, tag: getComputedStyle(document.getElementById('training-tag')).display })")
+    ok(out["state"] == "title" and out["lobby"] and not out["end"] and "training" not in out["cls"] and out["tag"] == "none", "el botón de salir vuelve al lobby sin ventanas", json.dumps(out))
+    page.evaluate("() => ZC.setMode('classic')")
     ok(not logs["errors"], "sin errores de consola en horizontal 844x390", "; ".join(logs["errors"][:5]))
     ctx.close()
     browser.close()

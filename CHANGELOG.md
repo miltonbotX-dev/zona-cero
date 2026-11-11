@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.7.0 — entrada limpia, juego en horizontal y modo entrenamiento (11 nov 2026, America/Lima)
+
+Pedido de Amilthon tras probar la 1.6. Todo lo de la 1.2 a la 1.6 sigue igual (lobby, caída 3-2-1, HUD de celular, mapas con imagen, balas desde el cañón, íconos, `ZC.BRAND`).
+
+- Entrada sin botones: se quitaron «Saltar», el parlante y el botón de play que salían sobre los videos. Tampoco Esc, Enter ni espacio saltan los videos. Un toque solo activa el sonido (nunca salta). Si el navegador no deja reproducir un video (ahorro de batería), se pasa al siguiente en silencio en medio segundo, sin mostrar nada. Si da error, falta, no arranca en 6 s o se traba 3,5 s, también se pasa solo.
+- Nuevo orden: primero la intro del logo del juego (`assets/intro.mp4`), después el video del creador (`assets/creadorAmilthon.mp4`) con «Creado por AMILTHON», luego la carga, «Toca para entrar» y el lobby. La firma solo sale en el video del creador.
+- El juego es horizontal: en un celular o tablet en vertical sale una pantalla «Gira tu celular» (dibujo SVG de un celular que gira, sin emoji) que tapa todo. La entrada espera en pausa (los videos no se pierden detrás del aviso) y arranca al girar; si vuelves a vertical a mitad, se pausa y sigue donde iba. Durante la partida, en vertical el juego queda en pausa. En PC nunca sale.
+- En Android (Chrome), el primer toque pide pantalla completa y bloquea la orientación en horizontal; tocar el aviso de girar lo vuelve a intentar. En iPhone no se puede bloquear la orientación: ahí queda el aviso hasta que gires el celular.
+- Nuevo `manifest.webmanifest`: al agregar el juego a la pantalla principal abre en pantalla completa y en horizontal, con el nombre ZCero y el ícono `logo-192.png`. Si cambias el nombre del juego, cámbialo también ahí.
+- Modo entrenamiento: en el lobby, encima de la tarjeta del mapa, hay un selector Clásico / Entreno (con íconos de paracaídas y diana). Se guarda en el perfil. En entrenamiento:
+  - no puedes morir (no recibes daño de balas ni de la zona);
+  - los rivales no disparan: caminan un poco o se quedan quietos, como blancos de práctica;
+  - si eliminas a uno, reaparece a los 2,5 s lejos de ti (lo dice el registro de bajas);
+  - la zona no se cierra ni hace daño («ZONA DESACTIVADA»);
+  - munición de reserva sin fin (se ve «/ ∞») y el botín se repone si queda poco; los rivales no lo recogen;
+  - la caída dura 1,5 s;
+  - arriba a la izquierda se ve la etiqueta ENTRENAMIENTO y un botón para salir al lobby, sin ventana de confirmar;
+  - nunca sale «Derrota» ni pantalla de fin.
+  Los ajustes del entrenamiento están en `ZC.TRAINING` (`js/config.js`). Clásico queda igual que antes.
+- Lobby: modo, mapa e Iniciar van apilados en una columna a la derecha, así ya no se pisan (antes la tarjeta del mapa rozaba Iniciar en 844x390).
+- `index.html` pide todo con `?v=1.7.0`.
+- Pruebas: 377 de humo (`node tests/smoke.js`: orden nuevo, sin botones ni teclas para saltar, toques que no saltan, pausa en vertical, video bloqueado que pasa en silencio, manifiesto, entrenamiento: sin daño, rivales que no disparan y reaparecen, zona apagada, munición, botín, salir al lobby, y Clásico intacto) y 100 en navegador (`tests/browser.py`: intro y creador sin botones en PC y 844x390, aviso de girar que pausa la entrada en 390x844 y arranque al girar, selector de modo sin solapes, partida de entrenamiento completa con etiqueta y botón de salir).
+
 ## 1.6.0 — ZCero: videos de entrada e íconos en los botones (11 nov 2026, America/Lima)
 
 Construida sobre la versión que editó Amilthon: se mantienen su nombre «ZCero», su logo nuevo («Logo Multitemporal»), «Battle royale», «©Amilthon company», «Último superviviente» (con tilde), «Fin de la partida», el texto corto del menú e «Inventario» en lugar de «Mochila». Lobby, caída 3-2-1, HUD de celular, mapas con imagen y balas desde el cañón quedan igual.

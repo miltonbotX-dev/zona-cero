@@ -2,9 +2,9 @@
 
 (Antes «Zona Cero». El nombre se cambia en un solo lugar: `ZC.BRAND` en `js/zc.js`.)
 
-Prototipo jugable de shooter táctico en vista lateral, estilo battle royale local. La zona se cierra, gana el último superviviente. Al abrirlo se ve el video del creador (firmado «Amilthon»), la animación de intro, una carga corta y luego el lobby. Los botones usan íconos. Hay lobby (mochila, aspecto, mapas y ajustes), fusil y escopeta, bots, cobertura y controles de PC y celular.
+Prototipo jugable de shooter táctico en vista lateral, estilo battle royale local. La zona se cierra, gana el último superviviente. Al abrirlo se ve la intro del logo, el video del creador (firmado «Amilthon»), una carga corta y luego el lobby. Se juega en horizontal. Hay modo Clásico y modo Entrenamiento (para probar sin que te eliminen). Los botones usan íconos. Hay lobby (mochila, aspecto, mapas y ajustes), fusil y escopeta, bots, cobertura y controles de PC y celular.
 
-**Cómo jugar en el celular:** abre el enlace del juego y gira el teléfono a horizontal. En un computador, también puedes abrir `index.html` con doble clic (Firefox, Chrome o Edge). No hace falta instalar nada.
+**Cómo jugar en el celular:** abre el enlace del juego y gira el teléfono a horizontal (en vertical sale «Gira tu celular» y todo espera). En Android, el primer toque pone pantalla completa y deja el juego acostado. En un computador, también puedes abrir `index.html` con doble clic (Firefox, Chrome o Edge). No hace falta instalar nada.
 
 ## Mapa de archivos
 
@@ -29,7 +29,7 @@ Prototipo jugable de shooter táctico en vista lateral, estilo battle royale loc
 | `js/render.js` | Cámara, fondo con imagen, mundo y HUD (`ZC.PALETTE`, `ZC.hudLayout`) | Estética del escenario y dónde va cada panel |
 | `js/ui.js` | Mostrar/ocultar menú, lobby y resultado; pantalla completa | Registrar pantallas |
 | `js/lobby.js` | Sala, perfil, mochila, mapa y ajustes; vista del personaje con su arma | Flujo del lobby |
-| `js/boot.js` | Entrada: video del creador, video de intro, carga real de mapas y paso al lobby | Orden de los videos (`FILMS`), tiempos de espera, cuándo aparece la firma |
+| `js/boot.js` | Entrada: intro del logo, video del creador, carga real de mapas y paso al lobby (sin botones encima; espera si el celular está en vertical) | Orden de los videos (`FILMS`), tiempos de espera, cuándo aparece la firma |
 | `js/game.js` | Partida: inicio, victoria/derrota, bucle | Flujo general |
 | `assets/maps/` | Imágenes de fondo de cada mapa (WebP) | Cambiar el paisaje de un mapa |
 | `assets/creadorAmilthon.mp4`, `assets/intro.mp4` | Videos de la entrada (créditos del creador y animación del juego) | Cambiar un video: reemplaza el archivo con el mismo nombre |
@@ -40,7 +40,7 @@ Más detalle técnico en `ARCHITECTURE.md`.
 ## Cómo abrir y jugar
 
 ### PC
-Doble clic en `index.html`, o visita la página publicada. Primero salen los dos videos (el botón Saltar, Enter o Esc los pasan; un clic activa el sonido), luego una carga corta y luego el lobby. La flecha del lobby abre el menú con los controles. Controles: WASD o flechas, espacio/W/↑ para saltar (doble salto), ratón para apuntar y disparar, R recarga, 1/2 (o Q) cambia el arma, M silencio.
+Doble clic en `index.html`, o visita la página publicada. Primero salen los dos videos completos (la intro del logo y luego el creador; un clic activa el sonido, nada los salta), luego una carga corta y luego el lobby. En el lobby eliges el modo encima del mapa: Clásico o Entreno. En entrenamiento no puedes morir, los rivales no disparan y reaparecen, la zona no se cierra y la munición no se acaba; el botón de salir (arriba a la izquierda) te lleva al lobby. La flecha del lobby abre el menú con los controles. Controles: WASD o flechas, espacio/W/↑ para saltar (doble salto), ratón para apuntar y disparar, R recarga, 1/2 (o Q) cambia el arma, M silencio.
 
 ### Celular
 Horizontal. Joystick izquierdo: mover. Derecho: apuntar y disparar. Botones Salto, Rec y Arma junto al joystick derecho. En el lobby, Ajustes permite mover y cambiar el tamaño de esos controles.

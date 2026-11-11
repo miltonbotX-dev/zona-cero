@@ -16,6 +16,7 @@ ZC.recountAlive = function () {
 
   ZC.checkWinner = function () {
     if (ZC.state !== "playing") return;
+    if (ZC.isTraining()) return; // en entrenamiento no hay ganador: los rivales reaparecen
     const living = [];
     for (let i = 0; i < ZC.actors.length; i++) if (!ZC.actors[i].dead) living.push(ZC.actors[i]);
     ZC.match.alive = living.length;
@@ -44,8 +45,12 @@ ZC.recountAlive = function () {
     if (ZC.Drop) { ZC.Drop.state.on = false; ZC.Drop.state.go = 0; }
   }
 
+  // opts.mode: "classic" | "training". Si no se pasa, usa el del lobby (ZC.profile.mode).
   ZC.startMatch = function (opts) {
     ZC.unlockAudio();
+    var mode = (opts && opts.mode) || (ZC.profile && ZC.profile.mode) || "classic";
+    ZC.match.mode = mode === "training" ? "training" : "classic";
+    var training = ZC.isTraining();
     if (ZC.profile && ZC.profile.mapId && ZC.Maps && ZC.Maps.all[ZC.profile.mapId]) {
       ZC.Maps.use(ZC.profile.mapId);
     }
@@ -57,6 +62,12 @@ ZC.recountAlive = function () {
     if (ZC.resetWorldDecor) ZC.resetWorldDecor();
     ZC.resetZone();
     ZC.seedLoot();
+    if (training) {
+      // Entrenamiento: la zona no se cierra ni hace daño
+      ZC.zone.r = ZC.zone.tr = 5000;
+      ZC.zone.dps = 0; ZC.zone.shrinking = false;
+      ZC.match.lootTimer = ZC.TRAINING.lootEvery;
+    }
 
     // Baraja ZC.map.spawns
     const spots = ZC.map.spawns.slice();
@@ -74,15 +85,21 @@ ZC.recountAlive = function () {
         x: s.x, y: s.y
       }));
     }
+    if (training) ZC.trainingTopUp();
     ZC.recountAlive();
     ZC.cam.x = ZC.util.clamp(ZC.player.x - ZC.viewW / 2, 0, Math.max(0, ZC.CFG.worldW - ZC.viewW));
     ZC.cam.y = ZC.util.clamp(ZC.player.y - ZC.viewH * ZC.camFeetRatio(), 0, ZC.camMaxY());
     ZC.state = "playing";
     ZC.match.startedAt = ZC.util.now();
     if (ZC.setInMatch) ZC.setInMatch(true);
+    if (ZC.setTrainingUI) ZC.setTrainingUI(training);
     // Despliegue: todos caen con cuenta 3-2-1 antes de poder disparar (js/drop.js)
-    var dropT = ZC.Drop ? Math.max(0, +ZC.CFG.dropTime || 0) : 0;
+    // En entrenamiento la caída es corta (ZC.TRAINING.dropTime).
+    var dropT = ZC.Drop ? Math.max(0, +(training ? ZC.TRAINING.dropTime : ZC.CFG.dropTime) || 0) : 0;
     if (ZC.Drop) ZC.Drop.start(dropT);
+    if (training) {
+      ZC.addFeed("Entrenamiento · los rivales no disparan");
+    }
     if (dropT > 0) {
       ZC.cam.x = ZC.util.clamp(ZC.player.x - ZC.viewW / 2, 0, Math.max(0, ZC.CFG.worldW - ZC.viewW));
       ZC.cam.y = ZC.util.clamp(ZC.player.y - ZC.viewH * ZC.camFeetRatio(), 0, ZC.camMaxY());
@@ -95,6 +112,7 @@ ZC.recountAlive = function () {
 
   ZC.endMatch = function () {
     if (ZC.state === "over") return;
+    if (ZC.isTraining()) return; // entrenamiento: nunca sale «Derrota» ni fin de partida
     ZC.state = "over";
     const win = ZC.match.winner && ZC.match.winner.isPlayer;
     if (win) ZC.sfx("win");
@@ -120,6 +138,68 @@ ZC.recountAlive = function () {
     if (extra) extra.textContent = "La zona se cerró en " + (ZC.zone.phase + 1) + " fases. Juega de nuevo cuando quieras.";
   }
 
+  // ---------------------------------------------------------------------------
+  // SECCIÓN: MODO ENTRENAMIENTO
+  // ---------------------------------------------------------------------------
+  // Munición de reserva siempre llena para el jugador.
+  ZC.trainingTopUp = function () {
+    var P = ZC.player;
+    if (!P || !P.gun) return;
+    Object.keys(ZC.WEAPONS).forEach(function (id) {
+      if (P.gun[id]) P.gun[id].reserve = ZC.TRAINING.ammo;
+    });
+  };
+
+  // Un rival eliminado vuelve tras ZC.TRAINING.respawn segundos, lejos del jugador.
+  ZC.respawnBot = function (a) {
+    var spots = (ZC.map && ZC.map.spawns) ? ZC.map.spawns : [];
+    var best = null, bestD = -1;
+    for (var i = 0; i < spots.length; i++) {
+      var d = ZC.player ? Math.abs(spots[i].x - ZC.player.x) : 0;
+      // Elige al azar entre los puntos a más de 300 px del jugador
+      var score = (d > 300 ? 1000 : 0) + Math.random() * 900;
+      if (score > bestD) { bestD = score; best = spots[i]; }
+    }
+    best = best || { x: 300 + Math.random() * (ZC.CFG.worldW - 600), y: ZC.CFG.groundY };
+    var fresh = ZC.makeActor({ id: a.id, name: a.name, color: a.color, x: best.x, y: best.y });
+    fresh.kills = a.kills;
+    fresh.look = a.look;
+    var idx = ZC.actors.indexOf(a);
+    if (idx >= 0) ZC.actors[idx] = fresh; else ZC.actors.push(fresh);
+    ZC.burst(fresh.x, fresh.y - 20, 14, "#e0c27a", 160);
+    ZC.addFeed(fresh.name + " reapareció");
+    ZC.recountAlive();
+    return fresh;
+  };
+
+  // Lo que cambia en cada cuadro del entrenamiento (reaparición, munición, botín).
+  ZC.updateTraining = function (dt) {
+    ZC.trainingTopUp();
+    for (var i = 0; i < ZC.actors.length; i++) {
+      var a = ZC.actors[i];
+      if (!a.dead || a.isPlayer) continue;
+      if (a.respawnIn == null) a.respawnIn = ZC.TRAINING.respawn;
+      a.respawnIn -= dt;
+      if (a.respawnIn <= 0) ZC.respawnBot(a);
+    }
+    ZC.match.lootTimer = (ZC.match.lootTimer == null ? ZC.TRAINING.lootEvery : ZC.match.lootTimer) - dt;
+    if (ZC.match.lootTimer <= 0) {
+      ZC.match.lootTimer = ZC.TRAINING.lootEvery;
+      if (ZC.loots.length < ZC.TRAINING.minLoot) ZC.seedLoot();
+    }
+  };
+
+  // Salir de la partida al lobby (botón casita del entrenamiento). Sin ventana
+  // de confirmar: en entrenamiento no se pierde nada.
+  ZC.leaveMatch = function () {
+    ZC.state = "title";
+    ZC.clearSim();
+    ZC.match.mode = "classic";
+    if (ZC.setTrainingUI) ZC.setTrainingUI(false);
+    ZC.hideOverlay("end-screen");
+    if (ZC.openLobby) ZC.openLobby(); else ZC.goMenu();
+  };
+
   ZC.formatTime = function (t) {
     const m = Math.floor(t / 60), s = Math.floor(t % 60);
     return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
@@ -127,6 +207,8 @@ ZC.recountAlive = function () {
 
   ZC.update = function (dt) {
     dt = ZC.util.clamp(dt, 0, 0.05);
+    // Celular en vertical durante la partida: pausa hasta que vuelvas a horizontal
+    if (ZC.state === "playing" && ZC.needsRotate && ZC.needsRotate()) return;
     if (ZC.state === "title") {
       ZC.match.elapsed += dt;
       // Cámara lenta de menú
@@ -149,7 +231,8 @@ ZC.recountAlive = function () {
     }
 
     ZC.match.elapsed += dt;
-    ZC.updateZone(dt);
+    const training = ZC.isTraining();
+    if (!training) ZC.updateZone(dt);
 
     if (ZC.state === "playing" || ZC.state === "over") {
       const pin = ZC.player ? ZC.readPlayerInput() : { moveX: 0, jump: false, fire: false, reload: false };
@@ -162,11 +245,13 @@ ZC.recountAlive = function () {
           // Respiro de "A COMBATIR": los bots se quedan quietos un instante tras aterrizar
           ZC.controlActor(a, dt, 0, false, false, false);
           ZC.collideWorld(a, dt);
+        } else if (training) {
+          ZC.thinkDummy(a, dt); // blanco de práctica: camina o se queda quieto, no dispara
         } else {
           ZC.thinkBot(a, dt);
         }
         // Daño de zona en ticks (~4 HP) para no saturar el HUD
-        if (!ZC.inZone(a.x, a.y - 16) && ZC.zone.dps > 0) {
+        if (!training && !ZC.inZone(a.x, a.y - 16) && ZC.zone.dps > 0) {
           a.zoneAcc = (a.zoneAcc || 0) + ZC.zone.dps * dt;
           if (a.zoneAcc >= 4) {
             ZC.applyDamage(a, a.zoneAcc, null, "zone");
@@ -176,6 +261,7 @@ ZC.recountAlive = function () {
           a.zoneAcc = 0;
         }
       }
+      if (training && ZC.state === "playing") ZC.updateTraining(dt);
       ZC.updateBullets(dt);
       ZC.updateLoot(dt);
       ZC.updateParticles(dt);
@@ -273,6 +359,7 @@ ZC.recountAlive = function () {
       loot: ZC.loots.length,
       zone: { r: zone.r, cx: zone.cx, cy: zone.cy, dps: zone.dps, shrinking: zone.shrinking, phase: zone.phase },
       muted: ZC.muted,
+      training: ZC.isTraining(),
       drop: ZC.Drop ? { on: ZC.Drop.active(), count: ZC.Drop.count(), t: ZC.Drop.state.t, dur: ZC.Drop.state.dur } : null
     };
   };

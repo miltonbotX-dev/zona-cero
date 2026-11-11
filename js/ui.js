@@ -87,6 +87,68 @@ ZC.hideOverlay = function (id) {
       return true;
     } catch (e) { return false; }
   };
+  // ---------------------------------------------------------------------------
+  // Horizontal obligatorio (v1.7). El juego se diseña acostado.
+  // ZC.ROTATE_QUERY es la MISMA condición que usa el CSS para #portrait-warn:
+  // celular o tablet (pantalla táctil) en vertical. En PC no aplica nunca.
+  // ---------------------------------------------------------------------------
+  ZC.ROTATE_QUERY = "(orientation: portrait) and (max-width: 900px) and (pointer: coarse)";
+  var rotateMq = null, rotateFn = null;
+  ZC.needsRotate = function () {
+    if (!global.matchMedia) return false;
+    // Se guarda la consulta (su .matches se actualiza solo al girar el celular)
+    if (!rotateMq || rotateFn !== global.matchMedia) {
+      try { rotateMq = global.matchMedia(ZC.ROTATE_QUERY); rotateFn = global.matchMedia; } catch (e) { return false; }
+    }
+    return !!(rotateMq && rotateMq.matches);
+  };
+
+  // Intenta poner el celular en horizontal: pantalla completa + bloquear la
+  // orientación. Solo funciona en Android (Chrome) y dentro de un toque.
+  // En iPhone no existe: ahí se queda el aviso de «Gira tu celular».
+  ZC.lockLandscape = function () {
+    try {
+      if (global.screen && screen.orientation && screen.orientation.lock) {
+        var p = screen.orientation.lock("landscape");
+        if (p && p.catch) p.catch(function () {});
+      }
+    } catch (e) {}
+  };
+  ZC.goLandscape = function () {
+    try {
+      if (ZC.isFullscreen()) ZC.lockLandscape();
+      else ZC.requestFullscreen(); // ya bloquea la orientación al entrar
+    } catch (e) {}
+  };
+
+  // Primer toque de la página (o cualquier toque mientras esté en vertical):
+  // pide pantalla completa y horizontal. Se escucha al soltar el dedo porque
+  // el navegador solo deja pedir pantalla completa en ese momento.
+  ZC.bindOrientation = function () {
+    if (ZC.__orientBound || typeof document === "undefined" || !document.addEventListener) return;
+    ZC.__orientBound = true;
+    var first = true;
+    function onTap() {
+      if (!first && !ZC.needsRotate()) return;
+      first = false;
+      ZC.goLandscape();
+    }
+    document.addEventListener("pointerup", onTap, true);
+    document.addEventListener("touchend", onTap, true);
+    // Tocar el aviso de girar también activa el sonido de la entrada
+    var warn = document.getElementById("portrait-warn");
+    if (warn && warn.addEventListener) warn.addEventListener("click", function () {
+      if (ZC.Boot && ZC.Boot.isFilm && ZC.Boot.isFilm()) ZC.Boot.unlockSound();
+    });
+  };
+
+  // Modo entrenamiento: #app.training muestra la etiqueta ENTRENAMIENTO y el
+  // botón de salir (casita) arriba a la izquierda durante la partida.
+  ZC.setTrainingUI = function (on) {
+    var app = document.getElementById("app");
+    if (app && app.classList) app.classList.toggle("training", !!on);
+  };
+
   ZC.toggleFullscreen = function () {
     if (ZC.isFullscreen()) {
       var exit = document.exitFullscreen || document.webkitExitFullscreen;
@@ -141,7 +203,10 @@ ZC.hideOverlay = function (id) {
       if (!ZC.fullscreenSupported()) full.hidden = true;
       full.addEventListener("click", function () { ZC.toggleFullscreen(); });
     }
+    var leave = document.getElementById("btn-exit-training");
+    if (leave) leave.addEventListener("click", function () { if (ZC.leaveMatch) ZC.leaveMatch(); });
     if (ZC.bindLobby) ZC.bindLobby();
+    ZC.bindOrientation();
     ZC.applyBrand();
   };
 })(typeof window !== "undefined" ? window : globalThis);

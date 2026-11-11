@@ -42,7 +42,7 @@ No reemplaces los arrays (`ZC.actors = []`): vacíalos con `.length = 0` (así l
 - **render:** cámara (`camFeetRatio`, `camMaxY`), escenario, proyectiles, zona y HUD (`hudLayout`). Llama a `ZC.Appearance.draw` para el cuerpo y a `drawDropWorld` / `drawDropHUD` durante la caída.
 - **ui:** nombre del juego (`ZC.applyBrand`, lee `ZC.BRAND` de `js/zc.js`), íconos (`ZC.icon(nombre)`, dibujos `<symbol id="i-...">` en `index.html`), overlays DOM (`hidden` + clase `active`). `ZC.UI.screens` incluye `boot`, `title`, `lobby` y `result`. También `setInMatch` (clase `#app.in-match`) y la pantalla completa (`requestFullscreen`, `toggleFullscreen`).
 - **lobby:** perfil, sala, paneles (mochila, aspecto, mapa, ajustes) y `startFromLobby`. La vista previa (`drawLobbyPreview`, `lobbyPreviewPose`) muestra al personaje quieto con su arma y un disparo de muestra cada `ZC.LOBBY_SHOT_EVERY` segundos.
-- **boot:** entrada al abrir la página (`ZC.Boot`): video del creador, video de intro, carga real y paso al lobby. Ver «Entrada» más abajo.
+- **boot:** entrada al abrir la página (`ZC.Boot`): intro del logo, video del creador, carga real y paso al lobby. Ver «Entrada» más abajo.
 - **game:** `startMatch`, `endMatch`, `update`, `loop`, `mount`, API pública y `ZC.__test`.
 
 ## Puntos de extensión
@@ -78,18 +78,24 @@ No reemplaces los arrays (`ZC.actors = []`): vacíalos con `.length = 0` (así l
 - Al terminar, `ZC.Drop.state.go` (0.9 s) muestra «A COMBATIR». En ese rato el jugador ya juega y los bots esperan quietos.
 - `ZC.state` sigue siendo `"playing"` durante la caída (las pruebas y el resto del código no cambian). `getState().drop` informa `on`, `count`, `t` y `dur`. `ZC.__test.skipDrop()` la salta. Con `ZC.CFG.dropTime = 0` no hay caída.
 
-## Entrada: videos, carga y lobby (v1.6)
+## Modo entrenamiento y horizontal (v1.7)
+
+- `ZC.match.mode` es `"classic"` o `"training"`; `ZC.isTraining()` lo consulta. El lobby lo guarda en `ZC.profile.mode` (`ZC.setMode`, `ZC.MODES`) y `startMatch` lo lee (o `opts.mode`).
+- En entrenamiento: `applyDamage` ignora el daño al jugador; `game.update` no corre `updateZone` ni el daño de zona y usa `ZC.thinkDummy` (bots.js) en lugar de `thinkBot`; `ZC.updateTraining` repone munición, reaparece rivales (`ZC.respawnBot`, tras `ZC.TRAINING.respawn`) y repone botín; `checkWinner` y `endMatch` no hacen nada. `ZC.leaveMatch()` vuelve al lobby (botón `#btn-exit-training`). `#app.training` muestra `#training-tag` y ese botón.
+- Horizontal: `ZC.ROTATE_QUERY` (ui.js) es la misma consulta que el CSS de `#portrait-warn`. `ZC.needsRotate()` la evalúa; `ZC.Boot.step` se pone en pausa (`hold`) y `ZC.update` no avanza la partida mientras sea verdadera. `ZC.bindOrientation` pide pantalla completa + `screen.orientation.lock("landscape")` al primer toque (solo Android/Chrome). `manifest.webmanifest` declara `orientation: landscape` y `display: fullscreen`.
+
+## Entrada: videos, carga y lobby (v1.6, orden de la v1.7)
 
 - Al abrir la página se ve `#boot-screen` (en `index.html`, antes del menú). `game.js` → `mount()` llama `ZC.Boot.start()`.
 - Fases (`ZC.Boot.phase`, también en `data-phase` del overlay para el CSS):
-  1. `creator`: `#boot-video-creator` (`assets/creadorAmilthon.mp4`, 16:9, fondo gris igual al del video) con `#boot-credit` («Creado por» + `ZC.BRAND.creator`), que aparece a `timing.creditAt` (3.2 s).
-  1b. `intro`: `#boot-video-intro` (`assets/intro.mp4`, cuadrado, sobre negro). El orden sale de `ZC.Boot.FILMS`.
-     Los videos arrancan `muted` + `playsinline`. `tap()` activa el sonido (si `ZC.muted` es falso) sin saltar; `skipFilm()` (botón «Saltar», Enter, Esc o espacio) pasa al siguiente. `stepFilm()` salta solo si hay `error`, si falta el elemento, si no arranca en `timing.videoStart` (6 s), si se congela `timing.videoStall` (3.5 s) o pasa `timing.videoMax`; lo anota en `ZC.Boot.skipped`.
+  1. `intro`: `#boot-video-intro` (`assets/intro.mp4`, cuadrado, sobre negro). El orden sale de `ZC.Boot.FILMS`.
+  1b. `creator`: `#boot-video-creator` (`assets/creadorAmilthon.mp4`, 16:9, fondo gris igual al del video) con `#boot-credit` («Creado por» + `ZC.BRAND.creator`), que aparece a `timing.creditAt` (3.2 s).
+     Los videos arrancan `muted` + `playsinline`. `tap()` activa el sonido (si `ZC.muted` es falso) y nunca salta. No hay botones ni teclas para saltar; `skipFilm()` existe solo para pruebas. Si el navegador bloquea el video, se pasa al siguiente tras `timing.blockedWait` (0.5 s) sin mostrar nada. `stepFilm()` salta solo si hay `error`, si falta el elemento, si no arranca en `timing.videoStart` (6 s), si se congela `timing.videoStall` (3.5 s) o pasa `timing.videoMax`; lo anota en `ZC.Boot.skipped`.
   2. `loading`: barra y porcentaje. Espera de verdad el logo y la imagen de fondo de cada mapa (`ZC.Maps.images`). `progress()` = terminados / total; una imagen que falla cuenta como terminada porque el mapa tiene su degradado `bgFallback`. La barra (`shown`) sube suave pero **nunca** pasa de `progress()`. Dura al menos `timing.minLoad` (0.9 s).
   3. `ready`: 100 % y «Toca para entrar». Pasa sola tras `timing.readyHold` (0.8 s).
   4. `done`: oculta la carga y llama `ZC.openLobby()`.
 - Si algo no carga en `timing.maxWait` (9 s), no se cuelga: pasa a `ready` con el porcentaje real y el estado «Algunos fondos siguen cargando».
-- Mientras dura, `#app.booting` oculta el aviso de girar el celular; en retrato aparece al terminar, sobre el lobby.
+- En vertical (celular) el aviso de girar tapa la entrada y `ZC.Boot` queda en pausa hasta girar (v1.7).
 - `ZC.Boot.step(dt)` es lógica pura (las pruebas la avanzan sin navegador). `ZC.Boot.skip()` / `ZC.__test.skipBoot()` entran directo al lobby. `mount({ boot: false })` deja el menú de antes.
 - El menú de siempre (`#title-screen`, con los controles) ya no es lo primero; se llega con la flecha del lobby y su botón Jugar vuelve al lobby.
 - Logo: `assets/logo.svg` (insignia del lobby, presentación y favicon) y `assets/logo-192.png` (ícono para Android/iPhone).

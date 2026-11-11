@@ -423,7 +423,8 @@
         c.fillText(magTxt, bx + bwid - (cp ? 34 : 40), ly);
         c.fillStyle = "#b3a68a";
         c.font = (cp ? 13 : 14) + "px Segoe UI, sans-serif";
-        c.fillText("/ " + clip.reserve, bx + bwid, ly);
+        // Entrenamiento: reserva sin fin (se mantiene llena)
+        c.fillText("/ " + (ZC.isTraining() ? "\u221e" : clip.reserve), bx + bwid, ly);
       }
     }
 
@@ -444,7 +445,8 @@
     c.fillStyle = ZC.zone.shrinking ? "#d99a3a" : "#b3a68a";
     c.font = (cp ? 10 : 11) + "px Segoe UI, sans-serif";
     const zl = (ZC.Drop && ZC.Drop.active()) ? "DESPLIEGUE" : ZC.zoneLabel();
-    c.fillText(zl + "  ·  DPS fuera " + Math.round(ZC.zone.dps), t.x + t.w / 2, t.y + t.h - (cp ? 7 : 9));
+    if (ZC.isTraining()) c.fillText(zl === "DESPLIEGUE" ? zl : "ZONA DESACTIVADA", t.x + t.w / 2, t.y + t.h - (cp ? 7 : 9));
+    else c.fillText(zl + "  ·  DPS fuera " + Math.round(ZC.zone.dps), t.x + t.w / 2, t.y + t.h - (cp ? 7 : 9));
 
     // Minimapa (arriba derecha)
     const m = Lay.minimap;

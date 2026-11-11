@@ -84,6 +84,8 @@ ZC.fireWeapon = function (actor) {
 
   ZC.applyDamage = function (victim, amount, src, cause) {
     if (!victim || victim.dead || amount <= 0) return false;
+    // Entrenamiento: el jugador no recibe daño (no puede morir)
+    if (victim.isPlayer && ZC.isTraining && ZC.isTraining()) return false;
     victim.hp -= amount;
     victim.hurt = 0.18;
     ZC.addFloat(victim.x, victim.y - victim.h - 8, "-" + Math.round(amount), src === ZC.player ? "#ffe08a" : "#ffd0d6");
@@ -161,6 +163,8 @@ ZC.fireWeapon = function (actor) {
       for (let a = 0; a < ZC.actors.length; a++) {
         const ac = ZC.actors[a];
         if (ac.dead) continue;
+        // En entrenamiento los rivales no recogen botín: todo queda para ti
+        if (!ac.isPlayer && ZC.isTraining && ZC.isTraining()) continue;
         if (Math.abs(ac.x - L.x) < 22 && Math.abs((ac.y - 16) - L.y) < 28) {
           ZC.pickLoot(ac, L);
           ZC.burst(L.x, L.y, 8, "#fff6c8", 120);

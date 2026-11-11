@@ -157,12 +157,18 @@
       position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
       padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
     }
+    /* Aviso «Gira tu celular» (v1.7). La condición es la misma que
+       ZC.ROTATE_QUERY en js/ui.js: pantalla táctil en vertical. En PC nunca sale. */
     #portrait-warn {
-      display: none; position: absolute; inset: 0; z-index: 20;
-      background: rgba(23,19,14,0.94); align-items: center; justify-content: center;
-      text-align: center; padding: 24px; font-size: 18px;
+      display: none; position: fixed; inset: 0; z-index: 60;
+      flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+      text-align: center; padding: 24px; cursor: pointer;
+      background:
+        radial-gradient(520px 420px at 50% 42%, rgba(111, 122, 76, 0.18), transparent 70%),
+        #15110c;
+      color: var(--text);
     }
-    @media (orientation: portrait) and (max-width: 900px) {
+    @media (orientation: portrait) and (max-width: 900px) and (pointer: coarse) {
       #portrait-warn { display: flex; }
     }
     @media (max-width: 720px) {
@@ -418,8 +424,6 @@
       to { opacity: 1; transform: none; }
     }
     @keyframes boot-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
-    /* En retrato el aviso de girar espera a que termine la entrada (no la tapa) */
-    #app.booting #portrait-warn { display: none !important; }
     @media (max-height: 500px) {
       .boot-logo { width: 96px; height: 96px; border-radius: 18px; }
       .boot-word { font-size: 26px; margin-top: 12px; }
@@ -611,36 +615,10 @@
     .boot-credit-name::before, .boot-credit-name::after {
       content: ""; width: 26px; height: 1px; background: rgba(241, 236, 226, 0.45);
     }
-    .boot-film-ctrl {
-      position: absolute; z-index: 2; display: flex; gap: 8px;
-      top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + var(--safe-r));
-    }
-    .boot-chip {
-      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-      height: 34px; min-width: 34px; padding: 0 9px; border-radius: 17px; cursor: pointer;
-      border: 1px solid rgba(241, 236, 226, 0.22); background: rgba(0, 0, 0, 0.38); color: #f1ece2;
-      font: 700 10px/1 "Segoe UI", Roboto, Arial, sans-serif; letter-spacing: 0.18em; text-transform: uppercase;
-      transition: background 0.15s ease, border-color 0.15s ease;
-    }
-    .boot-chip:hover { background: rgba(0, 0, 0, 0.55); border-color: rgba(241, 236, 226, 0.45); }
-    .boot-chip .ico { width: 16px; height: 16px; }
-    .boot-skip { padding: 0 13px 0 11px; }
-    .boot-skip span { padding-left: 0.18em; }
-    #boot-sound .ico-off, #boot-sound.off .ico-on { display: none; }
-    #boot-sound.off .ico-off { display: block; }
-    .boot-hint {
-      position: absolute; left: 50%; top: 50%; margin: -36px 0 0 -36px;
-      width: 72px; height: 72px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(241, 236, 226, 0.35); color: #f1ece2;
-      animation: boot-pulse 1.4s ease-in-out infinite;
-    }
-    .boot-hint .ico { width: 30px; height: 30px; margin-left: 4px; }
     @media (max-height: 500px) {
       .boot-credit-name { font-size: 13px; gap: 10px; }
       .boot-credit-name::before, .boot-credit-name::after { width: 18px; }
       .boot-credit-k { font-size: 8px; }
-      .boot-film-ctrl { top: calc(10px + env(safe-area-inset-top, 0px)); }
     }
     input[type="range"] { accent-color: var(--accent); }
     @media (max-height: 500px) {
@@ -649,4 +627,83 @@
     /* En retrato el video queda bajo y angosto: la firma va justo debajo del video */
     @media (orientation: portrait) {
       .boot-credit { bottom: calc((100% - var(--vh)) / 2 - 58px); }
+    }
+
+    /* ---------------------------------------------------------------------
+       v1.7: aviso de girar, selector de modo y modo entrenamiento
+       --------------------------------------------------------------------- */
+    .rotate-art {
+      width: 132px; height: 132px; margin-bottom: 8px;
+      fill: none; stroke: var(--amber); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .rotate-art circle { fill: var(--amber); stroke: none; }
+    .rotate-phone { transform-origin: 60px 61px; animation: rotate-phone 2.4s ease-in-out infinite; }
+    .rotate-arrow { stroke: var(--olive, #6f7a4c); stroke-width: 2.6; opacity: 0.9; }
+    @keyframes rotate-phone {
+      0%, 20% { transform: rotate(0deg); }
+      55%, 85% { transform: rotate(-90deg); }
+      100% { transform: rotate(0deg); }
+    }
+    .rotate-title {
+      margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;
+    }
+    .rotate-sub {
+      margin: 0; color: var(--muted); font-size: 13px; letter-spacing: 0.08em;
+    }
+
+    /* Columna derecha del lobby: modo, mapa e Iniciar apilados (nunca se pisan,
+       aunque el texto del mapa ocupe dos líneas) */
+    .lobby-right {
+      position: absolute; right: 22px; bottom: 22px; width: 210px; z-index: 2;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .lobby-right > .lobby-modes, .lobby-right > .lobby-map-card, .lobby-right > .lobby-start {
+      position: relative; left: auto; right: auto; top: auto; bottom: auto;
+      width: 100%; min-width: 0; flex: none;
+    }
+    .lobby-modes {
+      display: flex; gap: 4px; padding: 4px; border-radius: 12px;
+      background: rgba(28, 23, 16, 0.84); border: 1px solid rgba(214, 190, 140, 0.26);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+    .lobby-modes button {
+      flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 6px;
+      height: 36px; padding: 0 6px; border: 1px solid transparent; border-radius: 9px; cursor: pointer;
+      background: transparent; color: var(--muted);
+      font: 700 10px/1 "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif; letter-spacing: 0.1em; text-transform: uppercase;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+    .lobby-modes .ico { width: 18px; height: 18px; }
+    .lobby-modes button:hover { color: var(--text); }
+    .lobby-modes button.on { background: rgba(201, 150, 63, 0.2); border-color: var(--amber); color: var(--text); }
+    .lobby-modes button.on .ico { color: var(--amber); }
+    #lobby-screen.mode-training .lobby-map-card { border-color: rgba(143, 179, 90, 0.75); }
+    #lobby-screen.mode-training #lobby-mode-kicker { color: #a8cf6e; }
+
+    /* Partida de entrenamiento: etiqueta y botón para salir (arriba a la izquierda,
+       al lado de silencio y pantalla completa) */
+    #training-tag, #btn-exit-training { display: none; }
+    #app.in-match.training #btn-exit-training {
+      display: flex; right: auto; top: 8px; width: 36px; height: 36px;
+      left: calc(94px + var(--safe-l));
+    }
+    #app.in-match.training #training-tag {
+      display: flex; align-items: center; gap: 5px; position: absolute; z-index: 6; margin: 0;
+      top: 14px; left: calc(138px + var(--safe-l)); height: 24px; padding: 0 9px 0 7px;
+      border-radius: 12px; pointer-events: none;
+      background: rgba(28, 23, 16, 0.82); border: 1px solid rgba(143, 179, 90, 0.7); color: #cfe3a8;
+      font: 800 10px/1 "Segoe UI", Roboto, Arial, sans-serif; letter-spacing: 0.14em; text-transform: uppercase;
+    }
+    #training-tag .ico { width: 14px; height: 14px; color: #a8cf6e; }
+    @media (max-width: 800px) {
+      .lobby-right { right: 10px; width: 148px; }
+    }
+    @media (max-height: 500px) {
+      .lobby-right { right: calc(12px + var(--safe-r)); bottom: 14px; width: 210px; gap: 6px; }
+      .lobby-right > .lobby-start { height: 58px; }
+      .lobby-map-card { padding-top: 8px; padding-bottom: 8px; }
+      .lobby-map-card span:last-child { font-size: 11px; margin-top: 2px; }
+      .lobby-modes { padding: 3px; }
+      .lobby-modes button { height: 30px; gap: 5px; font-size: 9px; letter-spacing: 0.08em; }
+      .lobby-modes .ico { width: 15px; height: 15px; }
     }

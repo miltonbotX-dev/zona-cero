@@ -33,9 +33,17 @@
       hp: 100,
       bots: 7,
       controlScale: 1,
-      layout: null
+      layout: null,
+      mode: "classic"   // "classic" o "training" (selector junto al mapa)
     };
   }
+
+  // Modos de juego del lobby. Para añadir otro: agrégalo aquí, ponle su botón
+  // data-mode en index.html y su lógica en js/game.js.
+  ZC.MODES = {
+    classic: { name: "Clásico", blurb: "Battle royale: el último en pie gana" },
+    training: { name: "Entrenamiento", blurb: "Sin daño, rivales quietos que reaparecen" }
+  };
 
   function clampNum(v, a, b, fallback) {
     var n = Number(v);
@@ -83,7 +91,8 @@
       hp: clampNum(p.hp, 50, 200, d.hp),
       bots: clampNum(p.bots, 1, 7, d.bots),
       controlScale: clampNum(p.controlScale, 0.7, 1.4, d.controlScale),
-      layout: readLayout(p.layout)
+      layout: readLayout(p.layout),
+      mode: p.mode === "training" ? "training" : "classic"
     };
   }
 
@@ -113,7 +122,8 @@
         hp: ZC.profile.hp,
         bots: ZC.profile.bots,
         controlScale: ZC.profile.controlScale,
-        layout: ZC.profile.layout
+        layout: ZC.profile.layout,
+        mode: ZC.profile.mode
       }));
     } catch (err) {
       ZC.profile.persisted = false;
@@ -171,6 +181,20 @@
     if (card && map && map.backgroundImage) {
       card.style.backgroundImage = "linear-gradient(90deg, rgba(28, 23, 16, 0.94) 40%, rgba(28, 23, 16, 0.55)), url(" + map.backgroundImage + ")";
     }
+    // Selector de modo: marca el elegido y lo escribe en la tarjeta del mapa
+    var mode = ZC.MODES[p.mode] || ZC.MODES.classic;
+    var kick = document.getElementById("lobby-mode-kicker");
+    if (kick) kick.textContent = mode.name;
+    if (document.querySelectorAll) {
+      var mbtns = document.querySelectorAll("#lobby-modes [data-mode]");
+      for (var i = 0; i < mbtns.length; i++) {
+        var on = mbtns[i].getAttribute("data-mode") === p.mode;
+        if (mbtns[i].classList) mbtns[i].classList.toggle("on", on);
+        if (mbtns[i].setAttribute) mbtns[i].setAttribute("aria-pressed", on ? "true" : "false");
+      }
+    }
+    var lobby = document.getElementById("lobby-screen");
+    if (lobby && lobby.classList) lobby.classList.toggle("mode-training", p.mode === "training");
     var sub = document.getElementById("lobby-sub");
     if (sub) {
       sub.textContent = (look ? look.name : "Operativo") + " · " +
@@ -441,7 +465,7 @@
     if (ZC.profile.mapId && ZC.Maps.all[ZC.profile.mapId]) ZC.Maps.use(ZC.profile.mapId);
     ZC.closeLobby();
     // El toque en Iniciar es un gesto del usuario: ahí se puede pedir pantalla completa
-    ZC.startMatch({ requestFullscreen: true });
+    ZC.startMatch({ requestFullscreen: true, mode: ZC.profile.mode });
   };
 
   function onLobbyClick(e) {
@@ -451,16 +475,19 @@
     var weapon = null;
     var act = null;
     var panel = null;
+    var mode = null;
     while (node && node !== e.currentTarget) {
       if (!look && node.getAttribute && node.getAttribute("data-look")) look = node.getAttribute("data-look");
       if (!map && node.getAttribute && node.getAttribute("data-map")) map = node.getAttribute("data-map");
       if (!weapon && node.getAttribute && node.getAttribute("data-weapon")) weapon = node.getAttribute("data-weapon");
       if (!act && node.getAttribute && node.getAttribute("data-act")) act = node.getAttribute("data-act");
       if (!panel && node.getAttribute && node.getAttribute("data-panel")) panel = node.getAttribute("data-panel");
+      if (!mode && node.getAttribute && node.getAttribute("data-mode")) mode = node.getAttribute("data-mode");
       node = node.parentNode;
     }
     if (!ZC.profile) ZC.loadProfile();
     if (panel === "close") { closeSheet(); return; }
+    if (mode && ZC.MODES[mode]) { ZC.setMode(mode); return; }
     if (panel) {
       if (ZC.layoutEditing && ZC.endLayoutEdit) ZC.endLayoutEdit();
       openSheet(panel);
@@ -502,6 +529,15 @@
     ZC.saveProfile();
     ZC.renderLobby();
   }
+
+  // Cambia el modo (Clásico / Entrenamiento) y lo guarda en el perfil.
+  ZC.setMode = function (mode) {
+    if (!ZC.profile) ZC.loadProfile();
+    ZC.profile.mode = mode === "training" ? "training" : "classic";
+    ZC.saveProfile();
+    updateChrome();
+    return ZC.profile.mode;
+  };
 
   ZC.bindLobby = function () {
     var root = document.getElementById("lobby-screen");

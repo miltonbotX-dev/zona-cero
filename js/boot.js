@@ -1,9 +1,9 @@
 /* ============================================================================
    ZCero — arranque (videos de entrada, carga y paso al lobby)
    Contrato: ZC.Boot controla la secuencia al abrir la página:
-     1) "creator": video del creador (assets/creadorAmilthon.mp4) con la firma
+     1) "intro": animación del logo del juego (assets/intro.mp4).
+     2) "creator": video del creador (assets/creadorAmilthon.mp4) con la firma
         de ZC.BRAND.creator abajo, pequeña, que aparece suave.
-     2) "intro": animación de entrada del juego (assets/intro.mp4).
      3) "loading": barra de carga real. Cuenta el logo y las imágenes de fondo de
         cada mapa (ZC.Maps.images). Mientras corren los videos ya se van bajando.
         La barra nunca muestra más de lo que de verdad cargó; si algo tarda
@@ -11,9 +11,12 @@
      4) "ready": 100 %, «Toca para entrar» o pasa sola tras un momento.
      5) "done": oculta #boot-screen y abre el lobby (ZC.openLobby).
    Videos: el navegador solo deja arrancarlos SIN sonido (muted + playsinline).
-   El primer toque activa el sonido; el botón «Saltar» pasa al siguiente.
-   Si un video no carga, se traba o el navegador no lo deja reproducir, se salta
-   solo tras unos segundos: la entrada nunca se queda colgada.
+   El primer toque activa el sonido (no salta nada). Sobre los videos NO hay
+   botones (ni «Saltar» ni sonido): la entrada se ve limpia, como en un juego.
+   Si un video no carga, se traba o el navegador no lo deja reproducir, se pasa
+   solo al siguiente, sin avisos: la entrada nunca se queda colgada.
+   Celular en vertical: la entrada se pausa (ZC.needsRotate) hasta que gires a
+   horizontal, para que no se pierdan los videos detrás del aviso de girar.
    La lógica es pura (ZC.Boot.step(dt)) para poder probarla sin navegador.
    Depende de: js/zc.js, js/maps.js, js/ui.js, js/lobby.js (en runtime)
    ========================================================================== */
@@ -23,9 +26,10 @@
   if (!ZC) throw new Error("Carga js/zc.js antes que js/boot.js");
 
   // Orden de los videos. Para quitar uno, bórralo de esta lista (y su <video>).
+  // Primero el logo del juego, después el creador.
   var FILMS = [
-    { phase: "creator", id: "boot-video-creator" },
-    { phase: "intro", id: "boot-video-intro" }
+    { phase: "intro", id: "boot-video-intro" },
+    { phase: "creator", id: "boot-video-creator" }
   ];
 
   var Boot = {
@@ -33,8 +37,9 @@
     //  videoStart: espera máxima a que un video empiece a moverse.
     //  videoStall: si se queda congelado este tiempo, se salta.
     //  videoMax:   tope absoluto por video (por si el navegador no avisa del final).
+    //  blockedWait: si el navegador no deja reproducir, se pasa al siguiente tras esto.
     //  creditAt:   cuándo aparece la firma sobre el video del creador.
-    timing: { minLoad: 0.9, readyHold: 0.8, maxWait: 9, videoStart: 6, videoStall: 3.5, videoMax: 16, creditAt: 3.2 },
+    timing: { minLoad: 0.9, readyHold: 0.8, maxWait: 9, videoStart: 6, videoStall: 3.5, videoMax: 16, blockedWait: 0.5, creditAt: 3.2 },
     phase: "idle",
     t: 0,          // tiempo dentro de la fase actual
     shown: 0,      // progreso mostrado (0..1), nunca mayor que el real
@@ -46,6 +51,7 @@
     sound: false,  // true tras el primer toque (si el juego no está en silencio)
     film: null,    // estado del video actual: { el, lastTime, still, blocked, started }
     skipped: [],   // fases de video que se saltaron solas (para pruebas y depuración)
+    held: false,   // true mientras el celular está en vertical (todo en pausa)
 
     // Registra lo que hay que esperar: el logo y los fondos de mapa.
     collect: function () {
@@ -105,6 +111,7 @@
       this.timedOut = false;
       this.skipped = [];
       this.sound = false;
+      this.held = needsRotate();
       setBooting(true);
       if (ZC.applyBrand) ZC.applyBrand();
       ZC.showOverlay("boot-screen");
@@ -134,7 +141,7 @@
       this.phase = p;
       this.t = 0;
       this.film = null;
-      if (this.isFilm(p)) this.film = playFilm(FILMS[filmIndex(p)].id, this.sound);
+      if (this.isFilm(p)) this.film = playFilm(FILMS[filmIndex(p)].id, this.sound, this.held);
       // Mientras corre un video, el siguiente ya se va bajando
       var next = FILMS[filmIndex(p) + 1];
       if (next) { var nv = el(next.id); if (nv) { try { nv.preload = "auto"; } catch (e) {} } }
@@ -145,7 +152,7 @@
     nextFilm: function (why) {
       var i = filmIndex(this.phase);
       if (i < 0) return this.phase;
-      if (why && why !== "end" && why !== "user") this.skipped.push(this.phase + ":" + why);
+      if (why && why !== "end" && why !== "code") this.skipped.push(this.phase + ":" + why);
       this.setPhase(FILMS[i + 1] ? FILMS[i + 1].phase : "loading");
       return this.phase;
     },
@@ -162,16 +169,33 @@
       if (cur > f.lastTime + 0.001) { f.lastTime = cur; f.still = 0; f.started = true; }
       else f.still += dt;
       if (!f.started) {
-        // El navegador no lo deja reproducir solo: se ve el botón de play y,
-        // si nadie toca, se salta igual.
-        if (this.t >= T.videoStart) return this.nextFilm(f.blocked ? "blocked" : "slow");
+        // El navegador no lo deja reproducir solo (ahorro de batería, etc.):
+        // no se muestra ningún botón, se pasa en silencio al siguiente.
+        if (f.blocked && this.t >= T.blockedWait) return this.nextFilm("blocked");
+        if (this.t >= T.videoStart) return this.nextFilm("slow");
       } else if (f.still >= T.videoStall) return this.nextFilm("stall");
       if (this.t >= (dur > 0 ? Math.min(T.videoMax, dur + 2) : T.videoMax)) return this.nextFilm("max");
       return this.phase;
     },
 
+    // Pausa (on = true) o reanuda la entrada. Se usa con el celular en vertical.
+    hold: function (on) {
+      on = !!on;
+      if (this.held === on) return;
+      this.held = on;
+      var f = this.film;
+      if (f && f.el) {
+        if (on) { try { if (f.el.pause) f.el.pause(); } catch (e) {} }
+        else { f.still = 0; tryPlay(f); }
+      }
+      this.paint();
+    },
+
     step: function (dt) {
       if (this.phase === "idle" || this.phase === "done") return this.phase;
+      // Celular en vertical: se queda quieta (sin contar tiempo) hasta que gires
+      if (needsRotate()) { this.hold(true); return this.phase; }
+      if (this.held) this.hold(false);
       this.t += dt;
       var T = this.timing;
       if (this.isFilm()) {
@@ -197,23 +221,23 @@
       return this.phase;
     },
 
-    // Primer toque durante un video: activa el sonido (y lo arranca si el
-    // navegador lo había bloqueado). No salta: para eso está «Saltar».
+    // Toque durante un video: solo activa el sonido (y lo arranca si el
+    // navegador lo había frenado). NUNCA salta el video.
     // Con todo cargado, un toque entra al lobby.
     tap: function () {
       if (this.isFilm()) {
         this.unlockSound();
         var f = this.film;
-        if (f && f.el && f.el.paused && !f.el.ended) tryPlay(f);
-      } else if (this.phase === "ready") this.enter();
+        if (!this.held && f && f.el && f.el.paused && !f.el.ended) tryPlay(f);
+      } else if (this.phase === "ready" && !this.held) this.enter();
       return this.phase;
     },
 
-    // Botón «Saltar»: el video actual termina ya.
+    // Pasa al siguiente video desde el código (pruebas o depuración).
+    // No hay botón ni tecla para esto: el jugador ve la entrada completa.
     skipFilm: function () {
       if (!this.isFilm()) return this.phase;
-      this.unlockSound();
-      return this.nextFilm("user");
+      return this.nextFilm("code");
     },
 
     // Sonido de los videos: solo tras un toque y si el juego no está en silencio.
@@ -252,7 +276,6 @@
       var root = el("boot-screen");
       if (!root) return;
       if (root.setAttribute) root.setAttribute("data-phase", this.phase);
-      var film = this.isFilm();
       FILMS.forEach(function (fl) {
         var v = el(fl.id);
         if (v) v.hidden = Boot.phase !== fl.phase;
@@ -262,16 +285,7 @@
         credit.hidden = this.phase !== "creator";
         if (credit.classList) credit.classList.toggle("on", this.phase === "creator" && this.t >= this.timing.creditAt);
       }
-      var hint = el("boot-hint");
-      if (hint) hint.hidden = !(film && this.film && this.film.blocked && !this.film.started);
-      var snd = el("boot-sound");
-      if (snd) {
-        if (snd.classList) snd.classList.toggle("off", !this.sound);
-        if (snd.setAttribute) {
-          snd.setAttribute("aria-label", this.sound ? "Silenciar video" : "Activar sonido");
-          snd.setAttribute("title", this.sound ? "Silenciar video" : "Activar sonido");
-        }
-      }
+      if (root.classList) root.classList.toggle("held", !!this.held);
       var fill = el("boot-fill");
       var pct = el("boot-pct");
       var status = el("boot-status");
@@ -305,8 +319,14 @@
     return -1;
   }
 
+  // ¿Celular en vertical? (ZC.needsRotate vive en js/ui.js)
+  function needsRotate() {
+    try { return !!(ZC.needsRotate && ZC.needsRotate()); } catch (e) { return false; }
+  }
+
   // Arranca un <video> desde el inicio. Devuelve su estado para stepFilm.
-  function playFilm(id, sound) {
+  // held = true: lo deja listo pero en pausa (celular en vertical).
+  function playFilm(id, sound, held) {
     var v = el(id);
     // Sin <video> (o el navegador no sabe reproducir): se trata como si faltara
     if (v && typeof v.play !== "function") v = null;
@@ -317,7 +337,7 @@
       v.playsInline = true;
       if (v.currentTime) v.currentTime = 0;
     } catch (e) {}
-    tryPlay(f);
+    if (!held) tryPlay(f);
     return f;
   }
 
@@ -361,16 +381,6 @@
     if (root && !root.__zcBound) {
       root.addEventListener("click", function () { Boot.tap(); });
       root.__zcBound = true;
-      var skipBtn = el("boot-skip");
-      if (skipBtn) skipBtn.addEventListener("click", function (e) {
-        if (e && e.stopPropagation) e.stopPropagation();
-        Boot.skipFilm();
-      });
-      var snd = el("boot-sound");
-      if (snd) snd.addEventListener("click", function (e) {
-        if (e && e.stopPropagation) e.stopPropagation();
-        if (Boot.sound) Boot.setSound(false); else Boot.unlockSound();
-      });
       // Si el video termina, avanza en el mismo instante (sin esperar al siguiente cuadro)
       FILMS.forEach(function (fl) {
         var v = el(fl.id);
@@ -379,9 +389,10 @@
           v.addEventListener("error", function () { if (Boot.phase === fl.phase) Boot.nextFilm("error"); });
         }
       });
+      // En PC, Enter o Espacio hacen lo mismo que un toque (sonido / entrar).
+      // Ninguna tecla salta los videos.
       global.addEventListener("keydown", function (e) {
-        if (Boot.isFilm() && (e.code === "Escape" || e.code === "Enter" || e.code === "Space")) Boot.skipFilm();
-        else if (Boot.phase === "ready" && (e.code === "Enter" || e.code === "Space")) Boot.tap();
+        if (Boot.phase !== "idle" && Boot.phase !== "done" && (e.code === "Enter" || e.code === "Space")) Boot.tap();
       });
     }
   };

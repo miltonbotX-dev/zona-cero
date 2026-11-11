@@ -135,6 +135,28 @@ ZC.hasLineOfSight = function (ax, ay, bx, by) {
     ZC.collideWorld(a, dt);
   }
 
+  // Modo entrenamiento: blanco de práctica. Camina un poco o se queda quieto,
+  // salta las cajas que tiene delante y NUNCA dispara ni apunta al jugador.
+  ZC.thinkDummy = function (a, dt) {
+    const ai = a.ai || (a.ai = { think: 0, nextJump: 0 });
+    ai.think = (ai.think || 0) - dt;
+    ai.nextJump = Math.max(0, (ai.nextJump || 0) - dt);
+    if (ai.think <= 0) {
+      ai.think = ZC.util.rand(1.2, 3.2);
+      // 45 % de las veces se queda quieto; si no, camina despacio
+      ai.wanderDir = Math.random() < 0.45 ? 0 : (Math.random() < 0.5 ? -1 : 1);
+    }
+    if (a.x < 80) ai.wanderDir = 1;
+    if (a.x > ZC.CFG.worldW - 80) ai.wanderDir = -1;
+    const moveX = (ai.wanderDir || 0) * 0.45;
+    let jumping = false;
+    if (ZC.boxAhead(a, moveX) && ai.nextJump <= 0) { jumping = true; ai.nextJump = 0.6; }
+    if (moveX) a.facing = moveX > 0 ? 1 : -1;
+    a.aimX = a.facing; a.aimY = 0.05;
+    ZC.controlActor(a, dt, moveX, jumping, false, false);
+    ZC.collideWorld(a, dt);
+  };
+
   ZC.aimAt = function (a, x, y, inaccuracy) {
     // Desde el pivote del arma, que es de donde sale la bala (ZC.gunRig)
     const sy = ZC.GUN_RIG ? ZC.GUN_RIG.shoulderY : -16;

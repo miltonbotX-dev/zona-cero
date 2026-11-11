@@ -10,7 +10,7 @@
   "use strict";
 
   var ZC = {
-    version: "1.6.0",
+    version: "1.7.0",
     // Nombre del juego en UN solo lugar. Para renombrarlo (por ejemplo, cuando
     // elijas el nombre según las temáticas), cambia estos textos y listo:
     // js/ui.js (ZC.applyBrand) los copia a todo lo que tenga data-brand="..."
@@ -21,6 +21,8 @@
       company: "©Amilthon company",    // pie de la pantalla de carga
       creator: "Amilthon"            // firma sobre el video del creador
     },
+    // Ojo: manifest.webmanifest (icono al instalar en el celular) también lleva
+    // el nombre escrito; cámbialo ahí a mano cuando renombres el juego.
     state: "title",
     mounted: false,
     SCRIPT_ORDER: [
@@ -53,7 +55,8 @@
     },
     match: {
       elapsed: 0, alive: 0, winner: null,
-      playerKills: 0, playerPlace: 0, startedAt: 0
+      playerKills: 0, playerPlace: 0, startedAt: 0,
+      mode: "classic"   // "classic" | "training" (lo elige el lobby)
     },
     keys: {},
     muted: false,
@@ -106,6 +109,9 @@
     var t = ((e - a) * d1y - (f - b) * d1x) / den;
     return s >= 0 && s <= 1 && t >= 0 && t <= 1;
   }
+
+  // ¿La partida actual es de entrenamiento? (js/game.js, combat.js, bots.js)
+  ZC.isTraining = function () { return ZC.match.mode === "training"; };
 
   ZC.util = {
     clamp: clamp, lerp: lerp, rand: rand, irand: irand,

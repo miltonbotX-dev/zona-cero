@@ -31,6 +31,11 @@ ZC.CFG = {
     particleMax: 280,
     bulletMax: 90
   };
+  // Modo entrenamiento (v1.7): para probar el juego sin que te eliminen.
+  //  dropTime: caída corta.  respawn: segundos hasta que un rival vuelve.
+  //  lootEvery / minLoot: cada cuántos segundos se repone el botín si queda poco.
+  //  ammo: munición de reserva que se mantiene siempre llena.
+  ZC.TRAINING = { dropTime: 1.5, respawn: 2.5, lootEvery: 12, minLoot: 8, ammo: 999 };
   ZC.BOT_NAMES = ["Lobo", "Sombra", "Nox", "Vale", "Rift", "Hex", "Ion"];
   ZC.BOT_COLORS = ["#c8743f", "#8f7aa8", "#7f9a52", "#b86a6a", "#c9a646", "#6f8aa3", "#a8604a"];
 })(typeof window !== "undefined" ? window : globalThis);
